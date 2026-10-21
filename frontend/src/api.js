@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+// URL del backend desplegado en Render (producción)
+const RENDER_BACKEND_URL = 'https://compraventapro.onrender.com/api/v1';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://compraventapro.onrender.com/api/v1',
+  baseURL: import.meta.env.VITE_API_BASE_URL || RENDER_BACKEND_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -16,3 +19,4 @@ api.interceptors.request.use((config) => {
 });
 
 export default api;
+
