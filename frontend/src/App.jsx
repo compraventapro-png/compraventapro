@@ -12,9 +12,9 @@ export default function App() {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || 'null'));
 
   // Auth form
-  const [authEmail, setAuthEmail] = useState('admin@tienda.com');
-  const [authPassword, setAuthPassword] = useState('admin123');
-  const [authName, setAuthName] = useState('Administrador');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authName, setAuthName] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [authError, setAuthError] = useState('');
 
@@ -239,9 +239,10 @@ export default function App() {
               <input 
                 type="email" 
                 required 
+                placeholder="ejemplo@tienda.com"
                 value={authEmail} 
                 onChange={(e) => setAuthEmail(e.target.value)}
-                className="w-full mt-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                className="w-full mt-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" 
               />
             </div>
             <div>
@@ -249,9 +250,10 @@ export default function App() {
               <input 
                 type="password" 
                 required 
+                placeholder="••••••••"
                 value={authPassword} 
                 onChange={(e) => setAuthPassword(e.target.value)}
-                className="w-full mt-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                className="w-full mt-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" 
               />
             </div>
             <button 
