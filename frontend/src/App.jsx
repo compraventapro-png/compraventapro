@@ -221,13 +221,14 @@ export default function App() {
             </div>
           )}
 
-          <form onSubmit={handleAuth} className="space-y-4">
+          <form onSubmit={handleAuth} className="space-y-4" autoComplete="off">
             {isRegistering && (
               <div>
                 <label className="text-xs font-semibold text-slate-600 uppercase">Nombre Completo</label>
                 <input 
                   type="text" 
                   required 
+                  autoComplete="off"
                   value={authName} 
                   onChange={(e) => setAuthName(e.target.value)}
                   className="w-full mt-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" 
@@ -239,6 +240,7 @@ export default function App() {
               <input 
                 type="email" 
                 required 
+                autoComplete="new-password"
                 placeholder="ejemplo@tienda.com"
                 value={authEmail} 
                 onChange={(e) => setAuthEmail(e.target.value)}
@@ -250,6 +252,7 @@ export default function App() {
               <input 
                 type="password" 
                 required 
+                autoComplete="new-password"
                 placeholder="••••••••"
                 value={authPassword} 
                 onChange={(e) => setAuthPassword(e.target.value)}
