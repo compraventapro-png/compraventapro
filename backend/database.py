@@ -10,6 +10,10 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# SQLAlchemy 2.1+ usa el driver psycopg (v3). Convertimos la URL si viene como postgresql://
+if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL no está definida en el archivo .env")
 
