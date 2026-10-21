@@ -1022,28 +1022,7 @@ export default function App() {
               </button>
             </form>
 
-            {/* Accesos Rápidos Demo */}
-            <div className="mt-5 pt-4 border-t border-slate-100">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center mb-2">Acceso Rápido de Prueba</p>
-              <div className="grid grid-cols-2 gap-2">
-                <button 
-                  type="button"
-                  onClick={() => { setAuthEmail('admin@tienda.com'); setAuthPassword('admin123'); }}
-                  className="py-1.5 px-2 bg-slate-50 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 transition flex items-center justify-center gap-1.5"
-                >
-                  <span>👑</span> Administrador
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => { setAuthEmail('vendedor@tienda.com'); setAuthPassword('vendedor123'); }}
-                  className="py-1.5 px-2 bg-slate-50 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 transition flex items-center justify-center gap-1.5"
-                >
-                  <span>🛒</span> Vendedor
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-5 text-center">
+            <div className="mt-6 text-center">
               <button 
                 onClick={() => { setIsRegistering(!isRegistering); setAuthError(''); }}
                 className="text-xs font-bold text-rose-700 hover:text-rose-800 hover:underline transition"
