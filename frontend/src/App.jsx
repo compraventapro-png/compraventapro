@@ -1553,29 +1553,56 @@ export default function App() {
                   className="w-full mt-1 px-3 py-2 border rounded-xl text-sm"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-slate-600">Precio Compra ({currencySymbol.trim()})</label>
-                  <input 
-                    type="number" 
-                    step="0.01" 
-                    placeholder="15.00"
-                    value={newProduct.precio_compra}
-                    onChange={(e) => setNewProduct({ ...newProduct, precio_compra: e.target.value })}
-                    className="w-full mt-1 px-3 py-2 border rounded-xl text-sm"
-                  />
+              {/* Selección de Moneda y Precios */}
+              <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-slate-700">Moneda del Producto</span>
+                  <div className="inline-flex bg-white p-0.5 rounded-lg border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => cambiarMoneda('Bs')}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-md transition ${
+                        moneda === 'Bs' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-indigo-600'
+                      }`}
+                    >
+                      🇧🇴 Bs (Bolivianos)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => cambiarMoneda('$')}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-md transition ${
+                        moneda === '$' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-indigo-600'
+                      }`}
+                    >
+                      💵 $ (Dólares)
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-600">Precio Venta ({currencySymbol.trim()}) *</label>
-                  <input 
-                    type="number" 
-                    step="0.01" 
-                    required 
-                    placeholder="25.00"
-                    value={newProduct.precio_venta}
-                    onChange={(e) => setNewProduct({ ...newProduct, precio_venta: e.target.value })}
-                    className="w-full mt-1 px-3 py-2 border rounded-xl text-sm"
-                  />
+
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600">Precio Compra ({currencySymbol.trim()}) <span className="text-[10px] text-slate-400 font-normal">(Opcional)</span></label>
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      placeholder="0.00"
+                      value={newProduct.precio_compra}
+                      onChange={(e) => setNewProduct({ ...newProduct, precio_compra: e.target.value })}
+                      className="w-full mt-1 px-3 py-2 border rounded-xl text-sm bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600">Precio Venta ({currencySymbol.trim()}) *</label>
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      required 
+                      placeholder="0.00"
+                      value={newProduct.precio_venta}
+                      onChange={(e) => setNewProduct({ ...newProduct, precio_venta: e.target.value })}
+                      className="w-full mt-1 px-3 py-2 border rounded-xl text-sm bg-white"
+                    />
+                  </div>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -1801,18 +1828,47 @@ export default function App() {
                   onChange={(e) => setEditingProduct({ ...editingProduct, descripcion: e.target.value })}
                   className="w-full mt-1 px-3 py-2 border rounded-xl text-sm" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-slate-600">Precio Compra ({currencySymbol.trim()})</label>
-                  <input type="number" step="0.01" value={editingProduct.precio_compra}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, precio_compra: e.target.value })}
-                    className="w-full mt-1 px-3 py-2 border rounded-xl text-sm" />
+              {/* Selección de Moneda y Precios */}
+              <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-slate-700">Moneda del Producto</span>
+                  <div className="inline-flex bg-white p-0.5 rounded-lg border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => cambiarMoneda('Bs')}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-md transition ${
+                        moneda === 'Bs' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-indigo-600'
+                      }`}
+                    >
+                      🇧🇴 Bs (Bolivianos)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => cambiarMoneda('$')}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-md transition ${
+                        moneda === '$' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-indigo-600'
+                      }`}
+                    >
+                      💵 $ (Dólares)
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-600">Precio Venta ({currencySymbol.trim()}) *</label>
-                  <input type="number" step="0.01" required value={editingProduct.precio_venta}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, precio_venta: e.target.value })}
-                    className="w-full mt-1 px-3 py-2 border rounded-xl text-sm" />
+
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600">Precio Compra ({currencySymbol.trim()}) <span className="text-[10px] text-slate-400 font-normal">(Opcional)</span></label>
+                    <input type="number" step="0.01" value={editingProduct.precio_compra}
+                      placeholder="0.00"
+                      onChange={(e) => setEditingProduct({ ...editingProduct, precio_compra: e.target.value })}
+                      className="w-full mt-1 px-3 py-2 border rounded-xl text-sm bg-white" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600">Precio Venta ({currencySymbol.trim()}) *</label>
+                    <input type="number" step="0.01" required value={editingProduct.precio_venta}
+                      placeholder="0.00"
+                      onChange={(e) => setEditingProduct({ ...editingProduct, precio_venta: e.target.value })}
+                      className="w-full mt-1 px-3 py-2 border rounded-xl text-sm bg-white" />
+                  </div>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
