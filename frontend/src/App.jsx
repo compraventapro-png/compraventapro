@@ -19,9 +19,10 @@ import { Bar } from 'react-chartjs-2';
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('pos'); // 'pos', 'inventory', 'dashboard', 'ventas', 'usuarios'
-  const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || 'null'));
+  const isAdmin = user?.rol === 'admin';
+  const [activeTab, setActiveTab] = useState(isAdmin ? 'dashboard' : 'pos'); // 'dashboard', 'inventory', 'pos', 'ventas', 'usuarios'
+  const [token, setToken] = useState(localStorage.getItem('token') || '');
 
   // Auth form
   const [authEmail, setAuthEmail] = useState('');
@@ -100,8 +101,6 @@ export default function App() {
   const [editImagePreview, setEditImagePreview] = useState('');
   const editFileInputRef = useRef(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null); // producto a eliminar
-
-  const isAdmin = user?.rol === 'admin';
 
   useEffect(() => {
     // Interceptor global para capturar sesiones expiradas
@@ -709,20 +708,7 @@ export default function App() {
         </div>
 
         <nav className="flex-1 space-y-1">
-          <button 
-            onClick={() => setActiveTab('pos')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition text-sm ${activeTab === 'pos' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}
-          >
-            <ShoppingCart size={18} />
-            Punto de Venta (POS)
-          </button>
-          <button 
-            onClick={() => setActiveTab('inventory')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition text-sm ${activeTab === 'inventory' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}
-          >
-            <Package size={18} />
-            Inventario / Catálogo
-          </button>
+          {/* 1. Dashboard (solo admin) */}
           {isAdmin && (
             <button 
               onClick={() => { setActiveTab('dashboard'); loadVentasSemana(); }}
@@ -732,6 +718,26 @@ export default function App() {
               Dashboard & KPIs
             </button>
           )}
+
+          {/* 2. Catálogo / Inventario */}
+          <button 
+            onClick={() => setActiveTab('inventory')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition text-sm ${activeTab === 'inventory' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}
+          >
+            <Package size={18} />
+            Inventario / Catálogo
+          </button>
+
+          {/* 3. Punto de Venta (POS) */}
+          <button 
+            onClick={() => setActiveTab('pos')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition text-sm ${activeTab === 'pos' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}
+          >
+            <ShoppingCart size={18} />
+            Punto de Venta (POS)
+          </button>
+
+          {/* 4. Historial de Ventas (solo admin) */}
           {isAdmin && (
             <button 
               onClick={() => { setActiveTab('ventas'); loadVentas(); }}
@@ -741,6 +747,8 @@ export default function App() {
               Historial de Ventas
             </button>
           )}
+
+          {/* 5. Gestión de Usuarios (solo admin) */}
           {isAdmin && (
             <button 
               onClick={() => { setActiveTab('usuarios'); loadUsuarios(); }}
@@ -750,31 +758,6 @@ export default function App() {
               Gestión de Usuarios
             </button>
           )}
-
-          {/* Selector de Moneda */}
-          <div className="pt-4 mt-4 border-t border-slate-800">
-            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block px-2 mb-2">Moneda del Sistema</span>
-            <div className="grid grid-cols-2 gap-1.5 bg-slate-800/80 p-1 rounded-xl border border-slate-700/60">
-              <button
-                type="button"
-                onClick={() => cambiarMoneda('Bs')}
-                className={`py-1.5 text-xs font-bold rounded-lg transition ${
-                  moneda === 'Bs' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                🇧🇴 Bs (BOB)
-              </button>
-              <button
-                type="button"
-                onClick={() => cambiarMoneda('$')}
-                className={`py-1.5 text-xs font-bold rounded-lg transition ${
-                  moneda === '$' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                💵 $ (USD)
-              </button>
-            </div>
-          </div>
         </nav>
 
         <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
