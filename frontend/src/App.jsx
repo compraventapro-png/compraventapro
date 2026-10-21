@@ -788,13 +788,13 @@ export default function App() {
                         {p.descripcion && <p className="text-xs text-slate-500 mt-1 line-clamp-2">{p.descripcion}</p>}
                       </div>
 
-                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                        <span className="text-lg font-extrabold text-slate-900">${p.precio_venta.toFixed(2)}</span>
-                        <div className="flex gap-2">
+                      <div className="mt-4 pt-3 border-t border-slate-100">
+                        <span className="text-lg font-extrabold text-slate-900 block mb-2">${p.precio_venta.toFixed(2)}</span>
+                        <div className="flex gap-2 w-full">
                           {isAdmin && (
                             <button 
                               onClick={() => { setPurchaseProduct(p); setPurchasePrice(p.precio_compra); }}
-                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium"
+                              className="flex-none px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition"
                               title="Entrada de Stock (Compra)"
                             >
                               + Stock
@@ -803,7 +803,7 @@ export default function App() {
                           <button 
                             onClick={() => addToCart(p)}
                             disabled={p.stock_actual <= 0}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                            className={`flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
                               p.stock_actual <= 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                             }`}
                           >
