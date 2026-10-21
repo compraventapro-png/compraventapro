@@ -5,18 +5,24 @@ import {
   Plus, Minus, AlertTriangle, CheckCircle, TrendingUp, DollarSign,
   Boxes, Trash2, LogIn, LogOut, Search, UserCheck, 
   FileDown, Image as ImageIcon, Upload, X, Pencil,
-  History, Users, ToggleLeft, ToggleRight, RefreshCw, Printer, Receipt, Loader2
+  History, Users, ToggleLeft, ToggleRight, RefreshCw, Printer, Receipt, Loader2,
+  Calendar, Activity, BarChart3
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale, BarElement,
+  PointElement, LineElement, Filler,
   Title, Tooltip, Legend
 } from 'chart.js';
-import { Bar } from 'react-chartjs-2';
+import { Bar, Line } from 'react-chartjs-2';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+ChartJS.register(
+  CategoryScale, LinearScale, BarElement,
+  PointElement, LineElement, Filler,
+  Title, Tooltip, Legend
+);
 
 export default function App() {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || 'null'));
@@ -39,6 +45,19 @@ export default function App() {
   const [inventoryFilter, setInventoryFilter] = useState('all'); // 'all', 'low_stock'
   const [dashboardData, setDashboardData] = useState(null);
   const [ventasSemana, setVentasSemana] = useState([]);
+  const [chartType, setChartType] = useState('line'); // 'line' (Área / Línea suave) | 'bar' (Barras)
+
+  // Fecha actual en español para los paneles (ej: "Miércoles, 21 de octubre de 2026")
+  const getFechaActualFormateada = () => {
+    try {
+      const opciones = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+      const str = new Date().toLocaleDateString('es-ES', opciones);
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    } catch (e) {
+      return new Date().toLocaleDateString('es-ES');
+    }
+  };
+  const fechaActualTexto = getFechaActualFormateada();
 
   // Moneda global: 'Bs' (Bolivianos) o '$' (Dólares)
   const [moneda, setMoneda] = useState(localStorage.getItem('moneda') || 'Bs');
@@ -952,6 +971,33 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto">
+        {/* Encabezado Superior con Título del Panel y Fecha Actual */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 mb-5 border-b border-slate-200/80 gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              {activeTab === 'dashboard' && <><LayoutDashboard className="text-indigo-600" size={22} /> Dashboard de Métricas & KPIs</>}
+              {activeTab === 'inventory' && <><Package className="text-indigo-600" size={22} /> Catálogo de Inventario</>}
+              {activeTab === 'pos' && <><ShoppingCart className="text-indigo-600" size={22} /> Punto de Venta (POS)</>}
+              {activeTab === 'ventas' && <><History className="text-indigo-600" size={22} /> Historial y Reporte de Ventas</>}
+              {activeTab === 'usuarios' && <><Users className="text-indigo-600" size={22} /> Gestión y Control de Usuarios</>}
+            </h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {activeTab === 'dashboard' && 'Rendimiento general, KPI financieros y estadísticas en tiempo real'}
+              {activeTab === 'inventory' && 'Control de existencias, precios, margen de ganancia y stock'}
+              {activeTab === 'pos' && 'Registro ágil de pedidos, cálculo de cobros y emisión de facturas'}
+              {activeTab === 'ventas' && 'Auditoría de compras pasadas, reimpresión y balances'}
+              {activeTab === 'usuarios' && 'Control de accesos y cuentas del sistema'}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold shadow-sm">
+              <Calendar size={15} className="text-indigo-600" />
+              <span>{fechaActualTexto}</span>
+            </div>
+          </div>
+        </div>
+
         {purchaseMsg && (
           <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center gap-2 font-medium">
             <CheckCircle size={20} className="text-emerald-500" />
@@ -1504,35 +1550,158 @@ export default function App() {
 
             {/* Gráfica de ventas últimos 7 días */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <TrendingUp size={18} className="text-indigo-500" />
-                Ventas — Últimos 7 días
-              </h3>
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-5">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <TrendingUp size={20} className="text-indigo-600" />
+                    <h3 className="font-bold text-slate-800 text-base">Ventas — Últimos 7 días</h3>
+                    {ventasSemana.length > 0 && (
+                      <span className="text-xs font-bold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100">
+                        Total: {currencySymbol}{ventasSemana.reduce((sum, d) => sum + (d.total || 0), 0).toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Tendencia de recaudación acumulada por día
+                  </p>
+                </div>
+
+                {/* Alternador de tipo de gráfica: Línea / Área vs Barras */}
+                <div className="inline-flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold self-start sm:self-auto">
+                  <button
+                    onClick={() => setChartType('line')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
+                      chartType === 'line' 
+                        ? 'bg-indigo-600 text-white shadow-sm' 
+                        : 'text-slate-600 hover:text-indigo-600'
+                    }`}
+                  >
+                    <Activity size={14} />
+                    Línea Suave (Área)
+                  </button>
+                  <button
+                    onClick={() => setChartType('bar')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
+                      chartType === 'bar' 
+                        ? 'bg-indigo-600 text-white shadow-sm' 
+                        : 'text-slate-600 hover:text-indigo-600'
+                    }`}
+                  >
+                    <BarChart3 size={14} />
+                    Barras
+                  </button>
+                </div>
+              </div>
+
               {ventasSemana.length > 0 ? (
-                <Bar
-                  data={{
-                    labels: ventasSemana.map(d => d.fecha),
-                    datasets: [{
-                      label: 'Total ($)',
-                      data: ventasSemana.map(d => d.total),
-                      backgroundColor: 'rgba(99,102,241,0.7)',
-                      borderColor: 'rgba(99,102,241,1)',
-                      borderWidth: 2,
-                      borderRadius: 8,
-                    }]
-                  }}
-                  options={{
-                    responsive: true,
-                    plugins: {
-                      legend: { display: false },
-                      tooltip: { callbacks: { label: ctx => ` $${ctx.raw.toFixed(2)}` } }
-                    },
-                    scales: {
-                      y: { beginAtZero: true, ticks: { callback: v => `$${v}` }, grid: { color: '#f1f5f9' } },
-                      x: { grid: { display: false } }
-                    }
-                  }}
-                />
+                <div className="h-72 w-full">
+                  {chartType === 'line' ? (
+                    <Line
+                      data={{
+                        labels: ventasSemana.map(d => d.fecha),
+                        datasets: [{
+                          label: `Total (${currencySymbol.trim()})`,
+                          data: ventasSemana.map(d => d.total),
+                          borderColor: '#4f46e5',
+                          backgroundColor: (context) => {
+                            const ctx = context.chart.ctx;
+                            const gradient = ctx.createLinearGradient(0, 0, 0, 260);
+                            gradient.addColorStop(0, 'rgba(79, 70, 229, 0.32)');
+                            gradient.addColorStop(1, 'rgba(79, 70, 229, 0.01)');
+                            return gradient;
+                          },
+                          fill: true,
+                          tension: 0.38,
+                          borderWidth: 3,
+                          pointRadius: 5,
+                          pointHoverRadius: 8,
+                          pointBackgroundColor: '#ffffff',
+                          pointBorderColor: '#4f46e5',
+                          pointBorderWidth: 2.5,
+                        }]
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: { display: false },
+                          tooltip: {
+                            backgroundColor: '#0f172a',
+                            titleFont: { size: 12, weight: 'bold' },
+                            bodyFont: { size: 13, weight: 'bold' },
+                            padding: 10,
+                            cornerRadius: 8,
+                            callbacks: {
+                              title: (items) => `Día: ${items[0].label}`,
+                              label: (ctx) => ` Venta: ${currencySymbol}${Number(ctx.raw || 0).toFixed(2)}`
+                            }
+                          }
+                        },
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            ticks: {
+                              callback: (v) => `${currencySymbol}${v}`,
+                              font: { size: 11 },
+                              color: '#64748b'
+                            },
+                            grid: { color: '#f1f5f9' },
+                            border: { dash: [4, 4] }
+                          },
+                          x: {
+                            grid: { display: false },
+                            ticks: { font: { size: 11, weight: '500' }, color: '#64748b' }
+                          }
+                        }
+                      }}
+                    />
+                  ) : (
+                    <Bar
+                      data={{
+                        labels: ventasSemana.map(d => d.fecha),
+                        datasets: [{
+                          label: `Total (${currencySymbol.trim()})`,
+                          data: ventasSemana.map(d => d.total),
+                          backgroundColor: 'rgba(99,102,241,0.75)',
+                          borderColor: 'rgba(79,70,229,1)',
+                          borderWidth: 2,
+                          borderRadius: 8,
+                        }]
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: { display: false },
+                          tooltip: {
+                            backgroundColor: '#0f172a',
+                            padding: 10,
+                            cornerRadius: 8,
+                            callbacks: {
+                              title: (items) => `Día: ${items[0].label}`,
+                              label: (ctx) => ` Venta: ${currencySymbol}${Number(ctx.raw || 0).toFixed(2)}`
+                            }
+                          }
+                        },
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            ticks: {
+                              callback: (v) => `${currencySymbol}${v}`,
+                              font: { size: 11 },
+                              color: '#64748b'
+                            },
+                            grid: { color: '#f1f5f9' }
+                          },
+                          x: {
+                            grid: { display: false },
+                            ticks: { font: { size: 11, weight: '500' }, color: '#64748b' }
+                          }
+                        }
+                      }}
+                    />
+                  )}
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                   <TrendingUp size={40} className="text-slate-200 mb-2" />
@@ -1545,7 +1714,7 @@ export default function App() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm">
                 <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Compras Hoy</p>
-                <p className="text-2xl font-black text-rose-500">${(dashboardData?.total_compras_hoy ?? 0).toFixed(2)}</p>
+                <p className="text-2xl font-black text-rose-500">{currencySymbol}${(dashboardData?.total_compras_hoy ?? 0).toFixed(2)}</p>
                 <p className="text-xs text-slate-400 mt-1">{dashboardData?.num_compras_hoy ?? 0} entradas de mercadería</p>
               </div>
               <div className="p-5 bg-indigo-900 text-white rounded-2xl shadow-sm flex flex-col justify-between">
