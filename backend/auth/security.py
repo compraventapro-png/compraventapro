@@ -4,10 +4,10 @@
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+import bcrypt
 
 from dotenv import load_dotenv
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -21,17 +21,22 @@ SECRET_KEY  = os.getenv("SECRET_KEY", "clave_dev_insegura")
 ALGORITHM   = os.getenv("ALGORITHM", "HS256")
 EXPIRE_MINS = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
-pwd_context   = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
-# ─── Utilidades de contraseña ────────────────────────────────
+# ─── Utilidades de contraseña nativas con bcrypt ─────────────
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    # bcrypt requiere bytes y limita contraseñas a 72 bytes
+    pwd_bytes = password.encode('utf-8')[:72]
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    plain_bytes = plain.encode('utf-8')[:72]
+    hashed_bytes = hashed.encode('utf-8')
+    return bcrypt.checkpw(plain_bytes, hashed_bytes)
+
 
 
 # ─── Generación de JWT ───────────────────────────────────────
