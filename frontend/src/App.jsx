@@ -5,7 +5,7 @@ import {
   Plus, Minus, AlertTriangle, CheckCircle, TrendingUp, DollarSign,
   Boxes, Trash2, LogIn, LogOut, Search, UserCheck, 
   FileDown, Image as ImageIcon, Upload, X, Pencil,
-  History, Users, ToggleLeft, ToggleRight, RefreshCw, Printer, Receipt
+  History, Users, ToggleLeft, ToggleRight, RefreshCw, Printer, Receipt, Loader2
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -74,6 +74,16 @@ export default function App() {
   const [loadingUsuarios, setLoadingUsuarios] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
   const [newUser, setNewUser] = useState({ nombre: '', email: '', password: '', rol: 'vendedor' });
+
+  // Estados de carga para evitar doble clic (lag protection)
+  const [isSubmittingSale, setIsSubmittingSale] = useState(false);
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [isAddingStock, setIsAddingStock] = useState(false);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [isDeletingVenta, setIsDeletingVenta] = useState(false);
+  const [isDeletingProduct, setIsDeletingProduct] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   // Cart for POS (Sale)
   const [cart, setCart] = useState([]);
@@ -173,6 +183,8 @@ export default function App() {
   };
 
   const handleEliminarVenta = async (ventaId) => {
+    if (isDeletingVenta) return;
+    setIsDeletingVenta(true);
     try {
       await api.delete(`/ventas/${ventaId}`);
       showToast('Venta anulada y stock devuelto al inventario', 'success');
@@ -183,6 +195,8 @@ export default function App() {
       if (isAdmin) loadDashboard();
     } catch (err) {
       showToast(err.response?.data?.detail || 'Error al anular venta', 'error');
+    } finally {
+      setIsDeletingVenta(false);
     }
   };
 
@@ -274,13 +288,19 @@ export default function App() {
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
+    if (isCreatingUser) return;
+    setIsCreatingUser(true);
     try {
       await api.post('/usuarios/', newUser);
       setShowUserModal(false);
       setNewUser({ nombre: '', email: '', password: '', rol: 'vendedor' });
       loadUsuarios();
       showToast('Usuario creado con éxito', 'success');
-    } catch (err) { showToast(err.response?.data?.detail || 'Error al crear usuario', 'error'); }
+    } catch (err) { 
+      showToast(err.response?.data?.detail || 'Error al crear usuario', 'error'); 
+    } finally {
+      setIsCreatingUser(false);
+    }
   };
 
   const toggleUsuario = async (id) => {
@@ -446,6 +466,8 @@ export default function App() {
   // Login / Register handler
   const handleAuth = async (e) => {
     e.preventDefault();
+    if (isAuthenticating) return;
+    setIsAuthenticating(true);
     setAuthError('');
     try {
       if (isRegistering) {
@@ -468,6 +490,8 @@ export default function App() {
       setUser(receivedUser);
     } catch (err) {
       setAuthError(err.response?.data?.detail || 'Error al autenticar');
+    } finally {
+      setIsAuthenticating(false);
     }
   };
 
@@ -535,18 +559,19 @@ export default function App() {
 
   const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
-  // Submit Sale (Checkout)
+  // Submit Sale (Checkout) con protección contra doble clic
   const handleCheckout = async () => {
-    if (cart.length === 0) return;
+    if (cart.length === 0 || isSubmittingSale) return;
     if (metodoPago === 'efectivo') {
       const recibido = parseFloat(montoRecibido || 0);
       if (recibido < cartTotal) {
-        setSaleError(`Monto insuficiente. Faltan $${(cartTotal - recibido).toFixed(2)}`);
+        setSaleError(`Monto insuficiente. Faltan ${currencySymbol}${(cartTotal - recibido).toFixed(2)}`);
         return;
       }
     }
     setSaleError('');
     setSaleSuccess('');
+    setIsSubmittingSale(true);
     try {
       const resVenta = await api.post('/ventas/checkout', {
         items: cart.map(item => ({
@@ -573,10 +598,14 @@ export default function App() {
       setMontoRecibido('');
       setClienteNombre('');
       setClienteNit('');
+      showToast('¡Venta realizada con éxito!', 'success');
       loadProducts();
       if (isAdmin) loadDashboard();
     } catch (err) {
       setSaleError(err.response?.data?.detail || 'Error al procesar la venta');
+      showToast(err.response?.data?.detail || 'Error al procesar la venta', 'error');
+    } finally {
+      setIsSubmittingSale(false);
     }
   };
 
@@ -600,6 +629,8 @@ export default function App() {
   // Create Product
   const handleCreateProduct = async (e) => {
     e.preventDefault();
+    if (isSavingProduct) return;
+    setIsSavingProduct(true);
     const finalSku = (newProduct.sku && newProduct.sku.trim()) 
       ? newProduct.sku.trim() 
       : `PROD-${Date.now().toString().slice(-4)}`;
@@ -622,13 +653,16 @@ export default function App() {
       showToast('¡Producto registrado con éxito!', 'success');
     } catch (err) {
       showToast(err.response?.data?.detail || 'Error al crear producto', 'error');
+    } finally {
+      setIsSavingProduct(false);
     }
   };
 
   // Quick Purchase (Stock Entry)
   const handleStockEntry = async (e) => {
     e.preventDefault();
-    if (!purchaseProduct) return;
+    if (!purchaseProduct || isAddingStock) return;
+    setIsAddingStock(true);
     try {
       await api.post('/compras/', {
         items: [{
@@ -644,6 +678,8 @@ export default function App() {
       if (isAdmin) loadDashboard();
     } catch (err) {
       showToast(err.response?.data?.detail || 'Error en compra', 'error');
+    } finally {
+      setIsAddingStock(false);
     }
   };
 
@@ -691,6 +727,8 @@ export default function App() {
   // Guardar cambios de edición
   const handleSaveEdit = async (e) => {
     e.preventDefault();
+    if (isSavingEdit) return;
+    setIsSavingEdit(true);
     try {
       await api.put(`/productos/${editingProduct.id}`, {
         sku: editingProduct.sku,
@@ -709,11 +747,15 @@ export default function App() {
       showToast('Cambios guardados con éxito', 'success');
     } catch (err) {
       showToast(err.response?.data?.detail || 'Error al guardar cambios', 'error');
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
   // Eliminar (desactivar) producto con confirmación
   const handleDeleteProduct = async (producto) => {
+    if (isDeletingProduct) return;
+    setIsDeletingProduct(true);
     try {
       await api.delete(`/productos/${producto.id}`);
       setDeleteConfirm(null);
@@ -722,6 +764,8 @@ export default function App() {
       showToast('Producto desactivado del inventario', 'info');
     } catch (err) {
       showToast(err.response?.data?.detail || 'Error al eliminar producto', 'error');
+    } finally {
+      setIsDeletingProduct(false);
     }
   };
 
@@ -785,9 +829,17 @@ export default function App() {
             </div>
             <button 
               type="submit" 
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition shadow-lg shadow-indigo-200"
+              disabled={isAuthenticating}
+              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
             >
-              {isRegistering ? 'Crear Cuenta' : 'Iniciar Sesión'}
+              {isAuthenticating ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  {isRegistering ? 'Creando cuenta...' : 'Iniciando sesión...'}
+                </>
+              ) : (
+                isRegistering ? 'Crear Cuenta' : 'Iniciar Sesión'
+              )}
             </button>
           </form>
 
@@ -1233,13 +1285,22 @@ export default function App() {
                 {/* Botón confirmar */}
                 <button
                   onClick={handleCheckout}
-                  disabled={cart.length === 0}
+                  disabled={cart.length === 0 || isSubmittingSale}
                   className={`w-full py-3.5 rounded-xl font-bold text-sm shadow-lg transition flex items-center justify-center gap-2 ${
-                    cart.length === 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'
+                    cart.length === 0 || isSubmittingSale ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'
                   }`}
                 >
-                  <CheckCircle size={18} />
-                  {metodoPago === 'efectivo' ? 'Cobrar en Efectivo' : metodoPago === 'qr' ? 'Confirmar Pago QR' : 'Confirmar Pago Tarjeta'}
+                  {isSubmittingSale ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      Procesando venta...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle size={18} />
+                      {metodoPago === 'efectivo' ? 'Cobrar en Efectivo' : metodoPago === 'qr' ? 'Confirmar Pago QR' : 'Confirmar Pago Tarjeta'}
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -2019,9 +2080,17 @@ export default function App() {
                 </button>
                 <button 
                   type="submit" 
-                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm shadow-md"
+                  disabled={isSavingProduct}
+                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-xl text-sm shadow-md flex items-center justify-center gap-2"
                 >
-                  Guardar
+                  {isSavingProduct ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    'Guardar'
+                  )}
                 </button>
               </div>
             </form>
@@ -2066,8 +2135,19 @@ export default function App() {
                   className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm">
                   Cancelar
                 </button>
-                <button type="submit" className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm shadow-md">
-                  Crear Usuario
+                <button 
+                  type="submit" 
+                  disabled={isCreatingUser}
+                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-xl text-sm shadow-md flex items-center justify-center gap-2"
+                >
+                  {isCreatingUser ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Creando...
+                    </>
+                  ) : (
+                    'Crear Usuario'
+                  )}
                 </button>
               </div>
             </form>
@@ -2492,8 +2572,19 @@ export default function App() {
                   className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm">
                   Cancelar
                 </button>
-                <button type="submit" className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl text-sm shadow-md">
-                  Guardar Cambios
+                <button 
+                  type="submit" 
+                  disabled={isSavingEdit}
+                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-xl text-sm shadow-md flex items-center justify-center gap-2"
+                >
+                  {isSavingEdit ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    'Guardar Cambios'
+                  )}
                 </button>
               </div>
             </form>
@@ -2526,11 +2617,19 @@ export default function App() {
                 Cancelar
               </button>
               <button 
-                type="button"
+                type="button" 
+                disabled={isDeletingVenta}
                 onClick={() => handleEliminarVenta(ventaEliminarConfirm.id)}
-                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-md shadow-rose-200 transition"
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold rounded-xl text-xs shadow-md shadow-rose-200 transition flex items-center justify-center gap-2"
               >
-                Sí, anular venta
+                {isDeletingVenta ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Anulando...
+                  </>
+                ) : (
+                  'Sí, anular venta'
+                )}
               </button>
             </div>
           </div>
@@ -2554,9 +2653,19 @@ export default function App() {
                 className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm">
                 Cancelar
               </button>
-              <button onClick={() => handleDeleteProduct(deleteConfirm)}
-                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-sm shadow-md">
-                Sí, eliminar
+              <button 
+                onClick={() => handleDeleteProduct(deleteConfirm)}
+                disabled={isDeletingProduct}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-xl text-sm shadow-md flex items-center justify-center gap-2"
+              >
+                {isDeletingProduct ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Eliminando...
+                  </>
+                ) : (
+                  'Sí, eliminar'
+                )}
               </button>
             </div>
           </div>
@@ -2604,9 +2713,17 @@ export default function App() {
                 </button>
                 <button 
                   type="submit" 
-                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm shadow-md"
+                  disabled={isAddingStock}
+                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-xl text-sm shadow-md flex items-center justify-center gap-2"
                 >
-                  Añadir Stock
+                  {isAddingStock ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Añadiendo...
+                    </>
+                  ) : (
+                    'Añadir Stock'
+                  )}
                 </button>
               </div>
             </form>
