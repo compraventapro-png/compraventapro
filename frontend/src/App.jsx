@@ -66,6 +66,8 @@ export default function App() {
   const [ventas, setVentas] = useState([]);
   const [loadingVentas, setLoadingVentas] = useState(false);
   const [ventaDetalle, setVentaDetalle] = useState(null);
+  const [fechaFiltroVentas, setFechaFiltroVentas] = useState(''); // '' = todas, o 'YYYY-MM-DD'
+  const [ventaEliminarConfirm, setVentaEliminarConfirm] = useState(null);
 
   // Gestión de usuarios
   const [usuarios, setUsuarios] = useState([]);
@@ -168,6 +170,97 @@ export default function App() {
       setVentas(res.data);
     } catch (err) { console.error(err); }
     finally { setLoadingVentas(false); }
+  };
+
+  const handleEliminarVenta = async (ventaId) => {
+    try {
+      await api.delete(`/ventas/${ventaId}`);
+      showToast('Venta anulada y stock devuelto al inventario', 'success');
+      setVentaEliminarConfirm(null);
+      if (ventaDetalle?.id === ventaId) setVentaDetalle(null);
+      loadVentas();
+      loadProducts();
+      if (isAdmin) loadDashboard();
+    } catch (err) {
+      showToast(err.response?.data?.detail || 'Error al anular venta', 'error');
+    }
+  };
+
+  // Exportar reporte de ventas filtradas a PDF
+  const exportarReporteVentasPDF = (ventasFiltradas, fechaLabel) => {
+    if (!ventasFiltradas || ventasFiltradas.length === 0) {
+      showToast('No hay ventas para exportar en este rango', 'warning');
+      return;
+    }
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Encabezado
+    doc.setFillColor(49, 46, 129); // indigo-900
+    doc.rect(0, 0, pageWidth, 28, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(15);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CompraVentaPro — Reporte Oficial de Ventas', 14, 13);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Filtro: ${fechaLabel || 'Todas las ventas'} · Moneda: ${currencySymbol.trim()}`, 14, 21);
+    doc.text(`Emitido: ${new Date().toLocaleDateString('es-ES')} ${new Date().toLocaleTimeString('es-ES')}`, pageWidth - 14, 21, { align: 'right' });
+
+    // Filas para la tabla
+    const rows = ventasFiltradas.map((v, idx) => {
+      const itemsText = (v.detalles || []).map(d => {
+        const prod = products.find(p => p.id === d.producto_id);
+        const nombre = d.producto?.nombre || prod?.nombre || `Item #${d.producto_id}`;
+        return `${d.cantidad}x ${nombre}`;
+      }).join(', ');
+
+      return [
+        (idx + 1).toString(),
+        `#${v.id}`,
+        `${new Date(v.creado_en).toLocaleDateString('es-ES')} ${new Date(v.creado_en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`,
+        itemsText || 'Venta registrada',
+        `${currencySymbol}${v.total.toFixed(2)}`
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 34,
+      head: [['N°', 'ID', 'Fecha / Hora', 'Productos Comprados en la Venta', 'Total']],
+      body: rows,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [79, 70, 229],
+        textColor: 255,
+        fontStyle: 'bold',
+        fontSize: 9,
+      },
+      styles: { fontSize: 8, valign: 'middle' },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 10 },
+        1: { halign: 'center', fontStyle: 'bold', cellWidth: 16 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 95 },
+        4: { halign: 'right', fontStyle: 'bold', cellWidth: 28 },
+      }
+    });
+
+    const finalY = doc.lastAutoTable.finalY + 10;
+    const totalRecaudado = ventasFiltradas.reduce((a, v) => a + v.total, 0);
+
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(14, finalY, pageWidth - 28, 20, 3, 3, 'F');
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Resumen del Período:', 18, finalY + 8);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Total de Transacciones: ${ventasFiltradas.length}`, 18, finalY + 14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`TOTAL RECAUDADO: ${currencySymbol}${totalRecaudado.toFixed(2)}`, pageWidth - 18, finalY + 14, { align: 'right' });
+
+    doc.save(`Reporte_Ventas_${fechaLabel ? fechaLabel.replace(/[^a-zA-Z0-9]/g, '_') : 'General'}.pdf`);
+    showToast('Reporte de ventas descargado en PDF', 'success');
   };
 
   const loadUsuarios = async () => {
@@ -1407,140 +1500,252 @@ export default function App() {
         )}
 
         {/* TAB: HISTORIAL DE VENTAS */}
-        {activeTab === 'ventas' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-slate-800">Historial de Ventas</h2>
-              <button onClick={loadVentas} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 transition">
-                <RefreshCw size={13} /> Actualizar
-              </button>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              {loadingVentas ? (
-                <div className="p-12 text-center text-slate-400">Cargando historial...</div>
-              ) : ventas.length === 0 ? (
-                <div className="p-12 flex flex-col items-center text-slate-400">
-                  <History size={48} className="text-slate-200 mb-3" />
-                  <p className="font-semibold">No hay ventas registradas aún</p>
+        {activeTab === 'ventas' && (() => {
+          // Filtrado de ventas por fecha si está seleccionado
+          const hoyStr = new Date().toISOString().slice(0, 10);
+          const ventasFiltradas = ventas.filter(v => {
+            if (!fechaFiltroVentas) return true;
+            if (fechaFiltroVentas === 'hoy') {
+              return v.creado_en.slice(0, 10) === hoyStr;
+            }
+            return v.creado_en.slice(0, 10) === fechaFiltroVentas;
+          });
+
+          const totalRecaudadoFiltrado = ventasFiltradas.reduce((a, v) => a + v.total, 0);
+          const fechaLabel = fechaFiltroVentas === 'hoy' 
+            ? 'Ventas de Hoy' 
+            : fechaFiltroVentas 
+              ? `Ventas del ${fechaFiltroVentas}` 
+              : 'Historial Completo';
+
+          return (
+            <div className="space-y-4">
+              {/* Barra superior con Filtros y Botón de Imprimir Reporte en PDF */}
+              <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">Historial y Reporte de Ventas</h2>
+                  <p className="text-xs text-slate-500">Registro detallado de transacciones, reimpresión y balance diario</p>
                 </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 text-slate-500 uppercase text-xs border-b border-slate-200">
-                      <tr>
-                        <th className="px-5 py-3">#</th>
-                        <th className="px-5 py-3">Fecha y Hora</th>
-                        <th className="px-5 py-3">Productos</th>
-                        <th className="px-5 py-3 text-right">Total</th>
-                        <th className="px-5 py-3 text-center">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {ventas.map(v => (
-                        <tr key={v.id} className="hover:bg-slate-50 transition">
-                          <td className="px-5 py-3 font-mono font-bold text-slate-500">#{v.id}</td>
-                          <td className="px-5 py-3 text-slate-700">
-                            {new Date(v.creado_en).toLocaleDateString('es-ES')}
-                            <span className="text-slate-400 ml-2 text-xs">{new Date(v.creado_en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
-                          </td>
-                          <td className="px-5 py-3 text-slate-600">
-                            <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full text-xs font-bold">
-                              {v.detalles?.length ?? 0} ítem{(v.detalles?.length ?? 0) !== 1 ? 's' : ''}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3 text-right font-black text-emerald-600">{currencySymbol}{v.total.toFixed(2)}</td>
-                          <td className="px-5 py-3 text-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                              <button onClick={() => setVentaDetalle(ventaDetalle?.id === v.id ? null : v)}
-                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition">
-                                {ventaDetalle?.id === v.id ? 'Cerrar' : 'Ver'}
-                              </button>
-                              <button
-                                onClick={() => {
-                                  // Reabrir comprobante para reimpresión
-                                  const reconstructedItems = (v.detalles || []).map(d => {
-                                    const p = products.find(prod => prod.id === d.producto_id);
-                                    return {
-                                      product_id: d.producto_id,
-                                      nombre: p ? p.nombre : `Producto #${d.producto_id}`,
-                                      price: d.precio_unit,
-                                      quantity: d.cantidad
-                                    };
-                                  });
-                                  setTicketData({
-                                    nroFactura: `FAC-${String(v.id).padStart(5, '0')}`,
-                                    items: reconstructedItems.length > 0 ? reconstructedItems : [{ product_id: 1, nombre: 'Venta Registrada', price: v.total, quantity: 1 }],
-                                    total: v.total,
-                                    metodoPago: 'efectivo',
-                                    montoRecibido: v.total,
-                                    vuelto: 0,
-                                    cliente: 'Consumidor Final',
-                                    nit: 'S/N',
-                                    hora: new Date(v.creado_en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-                                    fecha: new Date(v.creado_en).toLocaleDateString('es-ES'),
-                                    cajero: user?.nombre || user?.email || 'Administrador',
-                                  });
-                                }}
-                                className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition flex items-center gap-1"
-                                title="Reimprimir comprobante"
-                              >
-                                <Receipt size={13} /> Factura
-                              </button>
-                            </div>
-                          </td>
+
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                  {/* Selector rápido: Todos / Hoy */}
+                  <div className="inline-flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+                    <button
+                      onClick={() => setFechaFiltroVentas('')}
+                      className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                        fechaFiltroVentas === '' ? 'bg-white text-indigo-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Todas ({ventas.length})
+                    </button>
+                    <button
+                      onClick={() => setFechaFiltroVentas('hoy')}
+                      className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                        fechaFiltroVentas === 'hoy' ? 'bg-white text-indigo-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Hoy ({ventas.filter(v => v.creado_en.slice(0, 10) === hoyStr).length})
+                    </button>
+                  </div>
+
+                  {/* Selector de fecha personalizada */}
+                  <input
+                    type="date"
+                    value={fechaFiltroVentas === 'hoy' ? '' : fechaFiltroVentas}
+                    onChange={(e) => setFechaFiltroVentas(e.target.value)}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    title="Filtrar por fecha específica"
+                  />
+
+                  {/* Botón Imprimir Reporte en PDF del día o fecha */}
+                  <button
+                    onClick={() => exportarReporteVentasPDF(ventasFiltradas, fechaLabel)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-200 transition"
+                    title="Descargar reporte digital en PDF"
+                  >
+                    <FileDown size={14} /> Imprimir Reporte PDF
+                  </button>
+
+                  <button 
+                    onClick={loadVentas} 
+                    className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition"
+                    title="Refrescar lista"
+                  >
+                    <RefreshCw size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Tabla de Ventas */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                {loadingVentas ? (
+                  <div className="p-12 text-center text-slate-400">Cargando historial...</div>
+                ) : ventasFiltradas.length === 0 ? (
+                  <div className="p-12 flex flex-col items-center text-slate-400">
+                    <History size={48} className="text-slate-200 mb-3" />
+                    <p className="font-semibold text-slate-700">No se encontraron ventas para esta fecha</p>
+                    <p className="text-xs text-slate-400 mt-1">Prueba seleccionando "Todas" o cambiando la fecha</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-slate-50 text-slate-500 uppercase text-xs border-b border-slate-200">
+                        <tr>
+                          <th className="px-5 py-3">Venta #</th>
+                          <th className="px-5 py-3">Fecha y Hora</th>
+                          <th className="px-5 py-3">Productos Adquiridos (Carrito)</th>
+                          <th className="px-5 py-3 text-right">Total Cobrado</th>
+                          <th className="px-5 py-3 text-center">Acciones</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {ventasFiltradas.map(v => (
+                          <tr key={v.id} className="hover:bg-slate-50 transition">
+                            <td className="px-5 py-3 font-mono font-bold text-slate-600">
+                              <span className="bg-slate-100 px-2 py-0.5 rounded-md">#{v.id}</span>
+                            </td>
+                            <td className="px-5 py-3 text-slate-700">
+                              <span className="font-medium">{new Date(v.creado_en).toLocaleDateString('es-ES')}</span>
+                              <span className="text-slate-400 ml-2 text-xs">{new Date(v.creado_en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
+                            </td>
+
+                            {/* Mostrar productos reales por su nombre adquiridos en el mismo carrito */}
+                            <td className="px-5 py-3">
+                              <div className="flex flex-wrap gap-1.5 max-w-md">
+                                {(v.detalles && v.detalles.length > 0) ? (
+                                  v.detalles.map(d => {
+                                    const prod = products.find(p => p.id === d.producto_id);
+                                    const nombreProd = d.producto?.nombre || prod?.nombre || `Item #${d.producto_id}`;
+                                    return (
+                                      <span 
+                                        key={d.id}
+                                        className="inline-flex items-center gap-1 bg-indigo-50 border border-indigo-100 text-indigo-900 text-xs px-2.5 py-1 rounded-lg font-medium"
+                                      >
+                                        <strong className="text-indigo-600">{d.cantidad}x</strong> {nombreProd}
+                                      </span>
+                                    );
+                                  })
+                                ) : (
+                                  <span className="text-xs text-slate-400 italic">Venta rápida</span>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="px-5 py-3 text-right font-black text-emerald-600 text-base font-mono">
+                              {currencySymbol}{v.total.toFixed(2)}
+                            </td>
+
+                            <td className="px-5 py-3 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button 
+                                  onClick={() => setVentaDetalle(ventaDetalle?.id === v.id ? null : v)}
+                                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition"
+                                >
+                                  {ventaDetalle?.id === v.id ? 'Cerrar' : 'Ver'}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    // Reconstruir factura completa con nombres reales del carrito
+                                    const reconstructedItems = (v.detalles || []).map(d => {
+                                      const p = products.find(prod => prod.id === d.producto_id);
+                                      return {
+                                        product_id: d.producto_id,
+                                        nombre: d.producto?.nombre || p?.nombre || `Producto #${d.producto_id}`,
+                                        price: d.precio_unit,
+                                        quantity: d.cantidad
+                                      };
+                                    });
+                                    setTicketData({
+                                      nroFactura: `FAC-${String(v.id).padStart(5, '0')}`,
+                                      items: reconstructedItems.length > 0 ? reconstructedItems : [{ product_id: 1, nombre: 'Venta Registrada', price: v.total, quantity: 1 }],
+                                      total: v.total,
+                                      metodoPago: 'efectivo',
+                                      montoRecibido: v.total,
+                                      vuelto: 0,
+                                      cliente: 'Consumidor Final',
+                                      nit: 'S/N',
+                                      hora: new Date(v.creado_en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+                                      fecha: new Date(v.creado_en).toLocaleDateString('es-ES'),
+                                      cajero: user?.nombre || user?.email || 'Administrador',
+                                    });
+                                  }}
+                                  className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition flex items-center gap-1"
+                                  title="Reimprimir Factura a Color o Ticket"
+                                >
+                                  <Receipt size={13} /> Factura
+                                </button>
+                                {isAdmin && (
+                                  <button
+                                    onClick={() => setVentaEliminarConfirm(v)}
+                                    className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition"
+                                    title="Anular venta y reponer stock"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Panel detalle de venta expandido */}
+              {ventaDetalle && (
+                <div className="bg-white rounded-2xl border border-indigo-200 shadow-sm p-5 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+                    <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                      <Receipt size={16} className="text-indigo-600" />
+                      Detalle de Productos en la Venta #{ventaDetalle.id}
+                    </h3>
+                    <button onClick={() => setVentaDetalle(null)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+                  </div>
+                  <div className="space-y-2">
+                    {ventaDetalle.detalles?.map(d => {
+                      const prod = products.find(p => p.id === d.producto_id);
+                      const nombre = d.producto?.nombre || prod?.nombre || `Producto ID #${d.producto_id}`;
+                      return (
+                        <div key={d.id} className="flex justify-between items-center py-2 border-b border-slate-100 text-sm">
+                          <div className="flex items-center gap-3">
+                            <span className="w-7 h-7 bg-indigo-50 text-indigo-700 rounded-lg flex items-center justify-center text-xs font-bold">{d.cantidad}</span>
+                            <div>
+                              <p className="font-semibold text-slate-800">{nombre}</p>
+                              <p className="text-xs text-slate-400">{currencySymbol}{d.precio_unit.toFixed(2)} c/u</p>
+                            </div>
+                          </div>
+                          <span className="font-bold text-slate-900 font-mono">{currencySymbol}{d.subtotal.toFixed(2)}</span>
+                        </div>
+                      );
+                    })}
+                    <div className="flex justify-between pt-2 font-black text-emerald-700 text-base">
+                      <span>TOTAL COBRADO</span>
+                      <span className="font-mono">{currencySymbol}{ventaDetalle.total.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Resumen total con filtro */}
+              {ventasFiltradas.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    { label: `Ventas (${fechaLabel})`, value: ventasFiltradas.length, color: 'indigo' },
+                    { label: `Total Recaudado (${currencySymbol.trim()})`, value: `${currencySymbol}${totalRecaudadoFiltrado.toFixed(2)}`, color: 'emerald' },
+                    { label: 'Ticket Promedio', value: `${currencySymbol}${(totalRecaudadoFiltrado / ventasFiltradas.length).toFixed(2)}`, color: 'amber' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className={`p-4 bg-${color}-50 border border-${color}-100 rounded-2xl text-center shadow-sm`}>
+                      <p className={`text-xs font-semibold text-${color}-600 uppercase`}>{label}</p>
+                      <p className={`text-xl font-black text-${color}-700 mt-1 font-mono`}>{value}</p>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
-
-            {/* Panel detalle de venta expandido */}
-            {ventaDetalle && (
-              <div className="bg-white rounded-2xl border border-indigo-200 shadow-sm p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-bold text-slate-800">Detalle Venta #{ventaDetalle.id}</h3>
-                  <button onClick={() => setVentaDetalle(null)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
-                </div>
-                <div className="space-y-2">
-                  {ventaDetalle.detalles?.map(d => (
-                    <div key={d.id} className="flex justify-between items-center py-2 border-b border-slate-100 text-sm">
-                      <div className="flex items-center gap-3">
-                        <span className="w-7 h-7 bg-indigo-50 text-indigo-700 rounded-lg flex items-center justify-center text-xs font-bold">{d.cantidad}</span>
-                        <div>
-                          <p className="font-semibold text-slate-800">Producto ID #{d.producto_id}</p>
-                          <p className="text-xs text-slate-400">${d.precio_unit.toFixed(2)} c/u</p>
-                        </div>
-                      </div>
-                      <span className="font-bold text-slate-900">${d.subtotal.toFixed(2)}</span>
-                    </div>
-                  ))}
-                  <div className="flex justify-between pt-2 font-black text-emerald-700">
-                    <span>TOTAL</span>
-                    <span>${ventaDetalle.total.toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Resumen total */}
-            {ventas.length > 0 && (
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: 'Total Ventas', value: ventas.length, color: 'indigo' },
-                  { label: 'Ingresos Totales', value: `$${ventas.reduce((a, v) => a + v.total, 0).toFixed(2)}`, color: 'emerald' },
-                  { label: 'Ticket Promedio', value: `$${(ventas.reduce((a, v) => a + v.total, 0) / ventas.length).toFixed(2)}`, color: 'amber' },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className={`p-4 bg-${color}-50 border border-${color}-100 rounded-2xl text-center`}>
-                    <p className={`text-xs font-semibold text-${color}-600 uppercase`}>{label}</p>
-                    <p className={`text-xl font-black text-${color}-700 mt-1`}>{value}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+          );
+        })()}
 
         {/* TAB: GESTIÓN DE USUARIOS */}
         {activeTab === 'usuarios' && (
@@ -2292,6 +2497,42 @@ export default function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRMAR ANULACIÓN / ELIMINACIÓN DE VENTA */}
+      {ventaEliminarConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-center">
+            <div className="w-14 h-14 bg-rose-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-rose-600 shadow-inner">
+              <Trash2 size={28} />
+            </div>
+            <h3 className="text-lg font-black text-slate-800 mb-1">¿Anular Venta #{ventaEliminarConfirm.id}?</h3>
+            <p className="text-xs text-slate-500 mb-4">
+              Total de la transacción: <strong className="text-slate-800">{currencySymbol}{ventaEliminarConfirm.total.toFixed(2)}</strong>
+            </p>
+            <div className="p-3 bg-rose-50 border border-rose-100 rounded-2xl text-xs text-rose-700 text-left space-y-1 mb-5">
+              <p className="font-bold flex items-center gap-1">⚠️ Acción importante:</p>
+              <p>• La venta se cancelará del historial y de los balances.</p>
+              <p>• <strong>El stock de todos los productos será devuelto automáticamente</strong> al inventario.</p>
+            </div>
+            <div className="flex gap-2">
+              <button 
+                type="button"
+                onClick={() => setVentaEliminarConfirm(null)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition"
+              >
+                Cancelar
+              </button>
+              <button 
+                type="button"
+                onClick={() => handleEliminarVenta(ventaEliminarConfirm.id)}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-md shadow-rose-200 transition"
+              >
+                Sí, anular venta
+              </button>
+            </div>
           </div>
         </div>
       )}

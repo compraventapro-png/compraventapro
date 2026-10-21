@@ -7,7 +7,7 @@ from typing import List
 
 import models, schemas
 from database import get_db
-from auth.security import get_current_user
+from auth.security import get_current_user, require_admin
 
 router = APIRouter(prefix="/api/v1/ventas", tags=["Ventas"])
 
@@ -19,6 +19,32 @@ def listar_ventas(db: Session = Depends(get_db), _=Depends(get_current_user)):
         .order_by(models.Venta.creado_en.desc())
         .all()
     )
+
+
+@router.delete("/{venta_id}", status_code=status.HTTP_204_NO_CONTENT)
+def anular_o_eliminar_venta(
+    venta_id: int, 
+    db: Session = Depends(get_db), 
+    _=Depends(require_admin)
+):
+    """
+    Anula/elimina una venta y reingresa el stock de los productos vendidos.
+    """
+    venta = db.query(models.Venta).filter(models.Venta.id == venta_id).first()
+    if not venta:
+        raise HTTPException(status_code=404, detail="Venta no encontrada")
+    
+    # Reponer stock de los productos asociados
+    for det in venta.detalles:
+        prod = db.query(models.Producto).filter(models.Producto.id == det.producto_id).first()
+        if prod:
+            prod.stock_actual += det.cantidad
+
+    # Eliminar detalles y la venta
+    db.query(models.DetalleVenta).filter(models.DetalleVenta.venta_id == venta_id).delete()
+    db.delete(venta)
+    db.commit()
+    return None
 
 
 @router.get("/{venta_id}", response_model=schemas.VentaOut)

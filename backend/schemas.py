@@ -203,6 +203,7 @@ class DetalleVentaOut(BaseModel):
     cantidad:    int
     precio_unit: float
     subtotal:    float
+    producto:    Optional[ProductoOut] = None
 
     model_config = {"from_attributes": True}
 
