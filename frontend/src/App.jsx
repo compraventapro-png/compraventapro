@@ -39,6 +39,15 @@ export default function App() {
   const [dashboardData, setDashboardData] = useState(null);
   const [ventasSemana, setVentasSemana] = useState([]);
 
+  // Moneda global: 'Bs' (Bolivianos) o '$' (Dólares)
+  const [moneda, setMoneda] = useState(localStorage.getItem('moneda') || 'Bs');
+  const currencySymbol = moneda === 'Bs' ? 'Bs ' : '$ ';
+
+  const cambiarMoneda = (nueva) => {
+    setMoneda(nueva);
+    localStorage.setItem('moneda', nueva);
+  };
+
   // Historial de ventas
   const [ventas, setVentas] = useState([]);
   const [loadingVentas, setLoadingVentas] = useState(false);
@@ -236,8 +245,8 @@ export default function App() {
         '', // Espacio para la imagen
         p.sku,
         p.nombre,
-        isAdmin ? `$${p.precio_compra.toFixed(2)}` : 'N/A',
-        `$${p.precio_venta.toFixed(2)}`,
+        isAdmin ? `${currencySymbol}${p.precio_compra.toFixed(2)}` : 'N/A',
+        `${currencySymbol}${p.precio_venta.toFixed(2)}`,
         `${p.stock_actual} unid.`,
         stockStatus
       ];
@@ -245,7 +254,7 @@ export default function App() {
 
     autoTable(doc, {
       startY: 32,
-      head: [['#', 'Foto', 'SKU', 'Producto', 'P. Compra', 'P. Venta', 'Stock', 'Estado']],
+      head: [['#', 'Foto', 'SKU', 'Producto', `P. Compra (${currencySymbol.trim()})`, `P. Venta (${currencySymbol.trim()})`, 'Stock', 'Estado']],
       body: tableData,
       theme: 'grid',
       headStyles: {
@@ -303,7 +312,7 @@ export default function App() {
     doc.text(`Total de Artículos en Catálogo: ${products.length}`, 18, finalY + 14);
     doc.text(`Unidades Totales en Existencia: ${totalStock}`, 100, finalY + 14);
     doc.setFont('helvetica', 'bold');
-    doc.text(`Valor Total de Venta: $${totalValuado.toFixed(2)}`, pageWidth - 18, finalY + 14, { align: 'right' });
+    doc.text(`Valor Total de Venta: ${currencySymbol}${totalValuado.toFixed(2)}`, pageWidth - 18, finalY + 14, { align: 'right' });
 
     doc.save(`Inventario_CompraVentaPro_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
@@ -414,12 +423,32 @@ export default function App() {
     }
   };
 
+  // Abrir modal de nuevo producto (con SKU generado por defecto opcional)
+  const openNewProductModal = () => {
+    const defaultSku = `PROD-${Date.now().toString().slice(-4)}`;
+    setNewProduct({
+      sku: defaultSku,
+      nombre: '',
+      descripcion: '',
+      imagen_url: '',
+      precio_compra: '',
+      precio_venta: '',
+      stock_actual: 0,
+      stock_minimo: 5
+    });
+    setImagePreview('');
+    setShowProductModal(true);
+  };
+
   // Create Product
   const handleCreateProduct = async (e) => {
     e.preventDefault();
+    const finalSku = (newProduct.sku && newProduct.sku.trim()) 
+      ? newProduct.sku.trim() 
+      : `PROD-${Date.now().toString().slice(-4)}`;
     try {
       await api.post('/productos/', {
-        sku: newProduct.sku,
+        sku: finalSku,
         nombre: newProduct.nombre,
         descripcion: newProduct.descripcion,
         imagen_url: newProduct.imagen_url || null,
@@ -686,6 +715,31 @@ export default function App() {
               Gestión de Usuarios
             </button>
           )}
+
+          {/* Selector de Moneda */}
+          <div className="pt-4 mt-4 border-t border-slate-800">
+            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block px-2 mb-2">Moneda del Sistema</span>
+            <div className="grid grid-cols-2 gap-1.5 bg-slate-800/80 p-1 rounded-xl border border-slate-700/60">
+              <button
+                type="button"
+                onClick={() => cambiarMoneda('Bs')}
+                className={`py-1.5 text-xs font-bold rounded-lg transition ${
+                  moneda === 'Bs' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                🇧🇴 Bs (BOB)
+              </button>
+              <button
+                type="button"
+                onClick={() => cambiarMoneda('$')}
+                className={`py-1.5 text-xs font-bold rounded-lg transition ${
+                  moneda === '$' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                💵 $ (USD)
+              </button>
+            </div>
+          </div>
         </nav>
 
         <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
@@ -728,7 +782,7 @@ export default function App() {
                 </div>
                 {isAdmin && (
                   <button 
-                    onClick={() => setShowProductModal(true)}
+                    onClick={openNewProductModal}
                     className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-md transition"
                   >
                     <Plus size={16} />
@@ -745,7 +799,7 @@ export default function App() {
                   <p className="font-semibold text-slate-700">No hay productos que coincidan</p>
                   {isAdmin && (
                     <button 
-                      onClick={() => setShowProductModal(true)}
+                      onClick={openNewProductModal}
                       className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold"
                     >
                       + Crear Producto
@@ -789,7 +843,7 @@ export default function App() {
                       </div>
 
                       <div className="mt-4 pt-3 border-t border-slate-100">
-                        <span className="text-lg font-extrabold text-slate-900 block mb-2">${p.precio_venta.toFixed(2)}</span>
+                        <span className="text-lg font-extrabold text-slate-900 block mb-2">{currencySymbol}{p.precio_venta.toFixed(2)}</span>
                         <div className="flex gap-2 w-full">
                           {isAdmin && (
                             <button 
@@ -854,14 +908,14 @@ export default function App() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-slate-800 truncate">{item.nombre}</p>
-                        <p className="text-xs text-slate-500">${item.price.toFixed(2)} c/u</p>
+                        <p className="text-xs text-slate-500">{currencySymbol}{item.price.toFixed(2)} c/u</p>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-semibold px-1.5 py-0.5 bg-white rounded-lg border border-slate-200">
                           x{item.quantity}
                         </span>
                         <span className="text-xs font-bold text-slate-900 w-16 text-right">
-                          ${(item.price * item.quantity).toFixed(2)}
+                          {currencySymbol}{(item.price * item.quantity).toFixed(2)}
                         </span>
                         <button onClick={() => removeFromCart(item.product_id)} className="text-slate-400 hover:text-rose-500 p-0.5">
                           <Trash2 size={14} />
@@ -877,7 +931,7 @@ export default function App() {
                 {/* Total */}
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-slate-600 font-medium">Total a cobrar:</span>
-                  <span className="text-2xl font-black text-slate-900">${cartTotal.toFixed(2)}</span>
+                  <span className="text-2xl font-black text-slate-900">{currencySymbol}{cartTotal.toFixed(2)}</span>
                 </div>
 
                 {cart.length > 0 && (
@@ -924,12 +978,12 @@ export default function App() {
                     {metodoPago === 'efectivo' && (
                       <div className="space-y-2">
                         <div>
-                          <label className="text-[10px] font-semibold text-slate-500 uppercase">Monto Recibido ($)</label>
+                          <label className="text-[10px] font-semibold text-slate-500 uppercase">Monto Recibido ({currencySymbol.trim()})</label>
                           <input
                             type="number"
                             min={cartTotal}
                             step="0.01"
-                            placeholder={`Mín. $${cartTotal.toFixed(2)}`}
+                            placeholder={`Mín. ${currencySymbol}${cartTotal.toFixed(2)}`}
                             value={montoRecibido}
                             onChange={e => { setMontoRecibido(e.target.value); setSaleError(''); }}
                             className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 font-mono"
@@ -939,7 +993,7 @@ export default function App() {
                           <div className="flex justify-between items-center bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
                             <span className="text-xs font-semibold text-emerald-700">Vuelto a dar:</span>
                             <span className="text-lg font-black text-emerald-700">
-                              ${(parseFloat(montoRecibido) - cartTotal).toFixed(2)}
+                              {currencySymbol}{(parseFloat(montoRecibido) - cartTotal).toFixed(2)}
                             </span>
                           </div>
                         )}
@@ -947,7 +1001,7 @@ export default function App() {
                           <div className="flex justify-between items-center bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
                             <span className="text-xs font-semibold text-rose-700">Falta:</span>
                             <span className="text-base font-black text-rose-700">
-                              ${(cartTotal - parseFloat(montoRecibido)).toFixed(2)}
+                              {currencySymbol}{(cartTotal - parseFloat(montoRecibido)).toFixed(2)}
                             </span>
                           </div>
                         )}
@@ -1004,7 +1058,7 @@ export default function App() {
                 </button>
                 {isAdmin && (
                   <button 
-                    onClick={() => setShowProductModal(true)}
+                    onClick={openNewProductModal}
                     className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-md transition"
                   >
                     <Plus size={16} />
@@ -1085,11 +1139,11 @@ export default function App() {
                           <p className="font-bold text-slate-800">{p.nombre}</p>
                           {p.descripcion && <p className="text-xs text-slate-400">{p.descripcion}</p>}
                         </td>
-                        {isAdmin && <td className="px-6 py-4 text-slate-600">${p.precio_compra.toFixed(2)}</td>}
-                        <td className="px-6 py-4 font-bold text-slate-900">${p.precio_venta.toFixed(2)}</td>
+                        {isAdmin && <td className="px-6 py-4 text-slate-600">{currencySymbol}{p.precio_compra.toFixed(2)}</td>}
+                        <td className="px-6 py-4 font-bold text-slate-900">{currencySymbol}{p.precio_venta.toFixed(2)}</td>
                         {isAdmin && (
                           <td className="px-6 py-4 text-emerald-600 font-semibold">
-                            +${(p.precio_venta - p.precio_compra).toFixed(2)}
+                            +{currencySymbol}{(p.precio_venta - p.precio_compra).toFixed(2)}
                           </td>
                         )}
                         <td className="px-6 py-4">
@@ -1161,7 +1215,7 @@ export default function App() {
               {[
                 { label: 'Productos Activos',    value: dashboardData?.total_productos ?? products.length, color: 'blue',    Icon: Package },
                 { label: 'Alertas Stock Mínimo', value: dashboardData?.productos_stock_bajo ?? 0,          color: 'amber',   Icon: AlertTriangle },
-                { label: 'Ventas Hoy ($)',        value: `$${(dashboardData?.total_ventas_hoy ?? 0).toFixed(2)}`, color: 'emerald', Icon: TrendingUp },
+                { label: `Ventas Hoy (${currencySymbol.trim()})`, value: `${currencySymbol}${(dashboardData?.total_ventas_hoy ?? 0).toFixed(2)}`, color: 'emerald', Icon: TrendingUp },
                 { label: 'Transacciones Hoy',    value: dashboardData?.num_ventas_hoy ?? 0,                color: 'indigo',  Icon: DollarSign },
               ].map(({ label, value, color, Icon }) => (
                 <div key={label} className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
@@ -1459,15 +1513,24 @@ export default function App() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-600">Código de Barra / SKU *</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-600">Código de Barra / SKU (Opcional)</label>
+                  <button
+                    type="button"
+                    onClick={() => setNewProduct({ ...newProduct, sku: `PROD-${Date.now().toString().slice(-4)}` })}
+                    className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800"
+                  >
+                    🎲 Generar código
+                  </button>
+                </div>
                 <input 
                   type="text" 
-                  required 
-                  placeholder="ej. PROD-001"
+                  placeholder="Auto-generado si se deja en blanco"
                   value={newProduct.sku}
                   onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
-                  className="w-full mt-1 px-3 py-2 border rounded-xl text-sm"
+                  className="w-full mt-1 px-3 py-2 border rounded-xl text-sm font-mono"
                 />
+                <p className="text-[10px] text-slate-400 mt-0.5">Si no tienes un código de barras, se asignará uno automáticamente.</p>
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-600">Nombre del Producto *</label>
@@ -1492,7 +1555,7 @@ export default function App() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-600">Precio Compra ($)</label>
+                  <label className="text-xs font-semibold text-slate-600">Precio Compra ({currencySymbol.trim()})</label>
                   <input 
                     type="number" 
                     step="0.01" 
@@ -1503,7 +1566,7 @@ export default function App() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-600">Precio Venta ($) *</label>
+                  <label className="text-xs font-semibold text-slate-600">Precio Venta ({currencySymbol.trim()}) *</label>
                   <input 
                     type="number" 
                     step="0.01" 
@@ -1622,14 +1685,14 @@ export default function App() {
                 {ticketData.items.map(item => (
                   <div key={item.product_id} className="flex justify-between text-xs">
                     <span className="text-slate-700 truncate flex-1">{item.nombre} <span className="text-slate-400">x{item.quantity}</span></span>
-                    <span className="font-bold text-slate-900 ml-2">${(item.price * item.quantity).toFixed(2)}</span>
+                    <span className="font-bold text-slate-900 ml-2">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
               <div className="border-t border-dashed border-slate-300 pt-3 space-y-1">
                 <div className="flex justify-between text-sm font-bold">
                   <span>TOTAL</span>
-                  <span>${ticketData.total.toFixed(2)}</span>
+                  <span>{currencySymbol}{ticketData.total.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-xs text-slate-500">
                   <span>Método</span>
@@ -1641,11 +1704,11 @@ export default function App() {
                   <>
                     <div className="flex justify-between text-xs text-slate-500">
                       <span>Recibido</span>
-                      <span>${ticketData.montoRecibido.toFixed(2)}</span>
+                      <span>{currencySymbol}{ticketData.montoRecibido.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-sm font-black text-emerald-700">
                       <span>Vuelto</span>
-                      <span>${ticketData.vuelto.toFixed(2)}</span>
+                      <span>{currencySymbol}{ticketData.vuelto.toFixed(2)}</span>
                     </div>
                   </>
                 )}
@@ -1669,11 +1732,11 @@ export default function App() {
                     <p style="text-align:center">Fecha: ${ticketData.fecha} ${ticketData.hora}</p>
                     <p style="text-align:center">Cliente: <b>${ticketData.cliente}</b></p>
                     <hr/>
-                    ${ticketData.items.map(i => `<div style="display:flex;justify-content:space-between"><span>${i.nombre} x${i.quantity}</span><span>$${(i.price*i.quantity).toFixed(2)}</span></div>`).join('')}
+                    ${ticketData.items.map(i => `<div style="display:flex;justify-content:space-between"><span>${i.nombre} x${i.quantity}</span><span>${currencySymbol}${(i.price*i.quantity).toFixed(2)}</span></div>`).join('')}
                     <hr/>
-                    <div class="total" style="display:flex;justify-content:space-between"><span>TOTAL</span><span>$${ticketData.total.toFixed(2)}</span></div>
+                    <div class="total" style="display:flex;justify-content:space-between"><span>TOTAL</span><span>${currencySymbol}${ticketData.total.toFixed(2)}</span></div>
                     <div style="display:flex;justify-content:space-between"><span>Pago</span><span>${ticketData.metodoPago}</span></div>
-                    ${ticketData.metodoPago === 'efectivo' ? `<div style="display:flex;justify-content:space-between"><span>Recibido</span><span>$${ticketData.montoRecibido.toFixed(2)}</span></div><div style="display:flex;justify-content:space-between;font-weight:bold;color:green"><span>Vuelto</span><span>$${ticketData.vuelto.toFixed(2)}</span></div>` : ''}
+                    ${ticketData.metodoPago === 'efectivo' ? `<div style="display:flex;justify-content:space-between"><span>Recibido</span><span>${currencySymbol}${ticketData.montoRecibido.toFixed(2)}</span></div><div style="display:flex;justify-content:space-between;font-weight:bold;color:green"><span>Vuelto</span><span>${currencySymbol}${ticketData.vuelto.toFixed(2)}</span></div>` : ''}
                     <p class="footer">¡Gracias por su compra!</p>
                   </body></html>`);
                   win.document.close();
@@ -1740,13 +1803,13 @@ export default function App() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-600">Precio Compra ($)</label>
+                  <label className="text-xs font-semibold text-slate-600">Precio Compra ({currencySymbol.trim()})</label>
                   <input type="number" step="0.01" value={editingProduct.precio_compra}
                     onChange={(e) => setEditingProduct({ ...editingProduct, precio_compra: e.target.value })}
                     className="w-full mt-1 px-3 py-2 border rounded-xl text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-600">Precio Venta ($) *</label>
+                  <label className="text-xs font-semibold text-slate-600">Precio Venta ({currencySymbol.trim()}) *</label>
                   <input type="number" step="0.01" required value={editingProduct.precio_venta}
                     onChange={(e) => setEditingProduct({ ...editingProduct, precio_venta: e.target.value })}
                     className="w-full mt-1 px-3 py-2 border rounded-xl text-sm" />
