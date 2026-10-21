@@ -33,6 +33,10 @@ export default function App() {
   const [cart, setCart] = useState([]);
   const [saleSuccess, setSaleSuccess] = useState('');
   const [saleError, setSaleError] = useState('');
+  const [metodoPago, setMetodoPago] = useState('efectivo'); // 'efectivo' | 'qr' | 'tarjeta'
+  const [montoRecibido, setMontoRecibido] = useState('');
+  const [clienteNombre, setClienteNombre] = useState('');
+  const [ticketData, setTicketData] = useState(null); // datos del ticket post-venta
 
   // New Product Modal/Form
   const [newProduct, setNewProduct] = useState({
@@ -309,6 +313,13 @@ export default function App() {
   // Submit Sale (Checkout)
   const handleCheckout = async () => {
     if (cart.length === 0) return;
+    if (metodoPago === 'efectivo') {
+      const recibido = parseFloat(montoRecibido || 0);
+      if (recibido < cartTotal) {
+        setSaleError(`Monto insuficiente. Faltan $${(cartTotal - recibido).toFixed(2)}`);
+        return;
+      }
+    }
     setSaleError('');
     setSaleSuccess('');
     try {
@@ -318,11 +329,22 @@ export default function App() {
           cantidad: item.quantity
         }))
       });
-      setSaleSuccess(`¡Venta procesada con éxito por un total de $${cartTotal.toFixed(2)}!`);
+      const vuelto = metodoPago === 'efectivo' ? Math.max(0, parseFloat(montoRecibido || 0) - cartTotal) : 0;
+      setTicketData({
+        items: [...cart],
+        total: cartTotal,
+        metodoPago,
+        montoRecibido: parseFloat(montoRecibido || cartTotal),
+        vuelto,
+        cliente: clienteNombre || 'Consumidor Final',
+        hora: new Date().toLocaleTimeString('es-ES'),
+        fecha: new Date().toLocaleDateString('es-ES'),
+      });
       setCart([]);
+      setMontoRecibido('');
+      setClienteNombre('');
       loadProducts();
       if (isAdmin) loadDashboard();
-      setTimeout(() => setSaleSuccess(''), 4000);
     } catch (err) {
       setSaleError(err.response?.data?.detail || 'Error al procesar la venta');
     }
@@ -724,13 +746,6 @@ export default function App() {
                 </span>
               </div>
 
-              {saleSuccess && (
-                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2">
-                  <CheckCircle size={16} />
-                  {saleSuccess}
-                </div>
-              )}
-
               {saleError && (
                 <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-semibold flex items-center gap-2">
                   <AlertTriangle size={16} />
@@ -739,38 +754,35 @@ export default function App() {
               )}
 
               {cart.length === 0 ? (
-                <div className="py-12 text-center text-slate-400 flex flex-col items-center">
+                <div className="py-10 text-center text-slate-400 flex flex-col items-center">
                   <ShoppingBag size={40} className="mb-2 text-slate-300" />
                   <p className="text-sm">El carrito está vacío</p>
                   <p className="text-xs text-slate-400">Haz clic en "Vender" en cualquier producto</p>
                 </div>
               ) : (
-                <div className="space-y-3 mb-6 max-h-80 overflow-y-auto pr-1">
+                <div className="space-y-2 mb-4 max-h-52 overflow-y-auto pr-1">
                   {cart.map(item => (
-                    <div key={item.product_id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 gap-3">
-                      <div className="w-10 h-10 bg-white rounded-lg overflow-hidden border border-slate-200 flex items-center justify-center flex-shrink-0">
+                    <div key={item.product_id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100 gap-2">
+                      <div className="w-9 h-9 bg-white rounded-lg overflow-hidden border border-slate-200 flex items-center justify-center flex-shrink-0">
                         {item.imagen_url ? (
                           <img src={item.imagen_url} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <Package size={18} className="text-slate-300" />
+                          <Package size={16} className="text-slate-300" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-slate-800 truncate">{item.nombre}</p>
                         <p className="text-xs text-slate-500">${item.price.toFixed(2)} c/u</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold px-2 py-1 bg-white rounded-lg border border-slate-200">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-semibold px-1.5 py-0.5 bg-white rounded-lg border border-slate-200">
                           x{item.quantity}
                         </span>
-                        <span className="text-xs font-bold text-slate-900 w-14 text-right">
+                        <span className="text-xs font-bold text-slate-900 w-16 text-right">
                           ${(item.price * item.quantity).toFixed(2)}
                         </span>
-                        <button 
-                          onClick={() => removeFromCart(item.product_id)} 
-                          className="text-slate-400 hover:text-rose-500 p-1"
-                        >
-                          <Trash2 size={16} />
+                        <button onClick={() => removeFromCart(item.product_id)} className="text-slate-400 hover:text-rose-500 p-0.5">
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </div>
@@ -778,12 +790,101 @@ export default function App() {
                 </div>
               )}
 
-              <div className="mt-auto pt-4 border-t border-slate-100">
-                <div className="flex justify-between items-center mb-4">
+              {/* --- SECCIÓN DE COBRO --- */}
+              <div className="pt-3 border-t border-slate-100 space-y-3">
+                {/* Total */}
+                <div className="flex justify-between items-center">
                   <span className="text-sm text-slate-600 font-medium">Total a cobrar:</span>
                   <span className="text-2xl font-black text-slate-900">${cartTotal.toFixed(2)}</span>
                 </div>
-                <button 
+
+                {cart.length > 0 && (
+                  <>
+                    {/* Nombre del cliente */}
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-500 uppercase">Cliente (opcional)</label>
+                      <input
+                        type="text"
+                        placeholder="Consumidor Final"
+                        value={clienteNombre}
+                        onChange={e => setClienteNombre(e.target.value)}
+                        className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      />
+                    </div>
+
+                    {/* Método de pago */}
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-500 uppercase">Método de Pago</label>
+                      <div className="grid grid-cols-3 gap-2 mt-1">
+                        {[
+                          { id: 'efectivo', icon: '💵', label: 'Efectivo' },
+                          { id: 'qr',       icon: '📱', label: 'QR / Trans.' },
+                          { id: 'tarjeta',  icon: '💳', label: 'Tarjeta' },
+                        ].map(m => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => { setMetodoPago(m.id); setMontoRecibido(''); setSaleError(''); }}
+                            className={`py-2 rounded-xl text-xs font-semibold border-2 transition flex flex-col items-center gap-0.5 ${
+                              metodoPago === m.id
+                                ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className="text-base">{m.icon}</span>
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Monto recibido + Vuelto (solo efectivo) */}
+                    {metodoPago === 'efectivo' && (
+                      <div className="space-y-2">
+                        <div>
+                          <label className="text-[10px] font-semibold text-slate-500 uppercase">Monto Recibido ($)</label>
+                          <input
+                            type="number"
+                            min={cartTotal}
+                            step="0.01"
+                            placeholder={`Mín. $${cartTotal.toFixed(2)}`}
+                            value={montoRecibido}
+                            onChange={e => { setMontoRecibido(e.target.value); setSaleError(''); }}
+                            className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 font-mono"
+                          />
+                        </div>
+                        {parseFloat(montoRecibido) >= cartTotal && (
+                          <div className="flex justify-between items-center bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+                            <span className="text-xs font-semibold text-emerald-700">Vuelto a dar:</span>
+                            <span className="text-lg font-black text-emerald-700">
+                              ${(parseFloat(montoRecibido) - cartTotal).toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                        {montoRecibido && parseFloat(montoRecibido) < cartTotal && (
+                          <div className="flex justify-between items-center bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+                            <span className="text-xs font-semibold text-rose-700">Falta:</span>
+                            <span className="text-base font-black text-rose-700">
+                              ${(cartTotal - parseFloat(montoRecibido)).toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Mensaje QR / Tarjeta */}
+                    {(metodoPago === 'qr' || metodoPago === 'tarjeta') && (
+                      <div className={`rounded-xl px-3 py-2 text-xs font-medium text-center border ${
+                        metodoPago === 'qr' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-purple-50 border-purple-200 text-purple-700'
+                      }`}>
+                        {metodoPago === 'qr' ? '📱 Pago por QR / Transferencia — Confirmar cuando el cliente haya pagado' : '💳 Pago con Tarjeta — Confirmar cuando se apruebe la transacción'}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Botón confirmar */}
+                <button
                   onClick={handleCheckout}
                   disabled={cart.length === 0}
                   className={`w-full py-3.5 rounded-xl font-bold text-sm shadow-lg transition flex items-center justify-center gap-2 ${
@@ -791,7 +892,7 @@ export default function App() {
                   }`}
                 >
                   <CheckCircle size={18} />
-                  Confirmar Venta y Descontar Stock
+                  {metodoPago === 'efectivo' ? 'Cobrar en Efectivo' : metodoPago === 'qr' ? 'Confirmar Pago QR' : 'Confirmar Pago Tarjeta'}
                 </button>
               </div>
             </div>
@@ -1169,6 +1270,93 @@ export default function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: TICKET DE VENTA */}
+      {ticketData && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden">
+            {/* Header ticket */}
+            <div className="bg-emerald-600 text-white p-5 text-center">
+              <CheckCircle size={36} className="mx-auto mb-2" />
+              <h3 className="text-lg font-black">¡Venta Exitosa!</h3>
+              <p className="text-emerald-100 text-xs">{ticketData.fecha} — {ticketData.hora}</p>
+            </div>
+            {/* Cuerpo ticket */}
+            <div className="p-5 font-mono text-sm">
+              <div className="border-b border-dashed border-slate-300 pb-3 mb-3">
+                <p className="text-xs text-slate-500 text-center uppercase font-semibold tracking-widest">CompraVentaPro</p>
+                <p className="text-xs text-center text-slate-400">Cliente: <span className="text-slate-700 font-bold">{ticketData.cliente}</span></p>
+              </div>
+              {/* Items */}
+              <div className="space-y-1.5 mb-3">
+                {ticketData.items.map(item => (
+                  <div key={item.product_id} className="flex justify-between text-xs">
+                    <span className="text-slate-700 truncate flex-1">{item.nombre} <span className="text-slate-400">x{item.quantity}</span></span>
+                    <span className="font-bold text-slate-900 ml-2">${(item.price * item.quantity).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-dashed border-slate-300 pt-3 space-y-1">
+                <div className="flex justify-between text-sm font-bold">
+                  <span>TOTAL</span>
+                  <span>${ticketData.total.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>Método</span>
+                  <span className="capitalize font-semibold">
+                    {ticketData.metodoPago === 'efectivo' ? '💵 Efectivo' : ticketData.metodoPago === 'qr' ? '📱 QR/Trans.' : '💳 Tarjeta'}
+                  </span>
+                </div>
+                {ticketData.metodoPago === 'efectivo' && (
+                  <>
+                    <div className="flex justify-between text-xs text-slate-500">
+                      <span>Recibido</span>
+                      <span>${ticketData.montoRecibido.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-black text-emerald-700">
+                      <span>Vuelto</span>
+                      <span>${ticketData.vuelto.toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+              <p className="text-[10px] text-center text-slate-400 mt-4">¡Gracias por su compra!</p>
+            </div>
+            {/* Acciones */}
+            <div className="px-5 pb-5 flex gap-2">
+              <button
+                onClick={() => setTicketData(null)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm"
+              >
+                Cerrar
+              </button>
+              <button
+                onClick={() => {
+                  // Imprimir ticket
+                  const win = window.open('', '_blank', 'width=350,height=500');
+                  win.document.write(`<html><head><title>Ticket</title><style>body{font-family:monospace;font-size:12px;padding:16px;max-width:300px}h2{text-align:center}hr{border:none;border-top:1px dashed #999;margin:8px 0}.total{font-weight:bold;font-size:14px}.footer{text-align:center;color:#999;margin-top:12px;font-size:10px}</style></head><body>
+                    <h2>CompraVentaPro</h2>
+                    <p style="text-align:center">Fecha: ${ticketData.fecha} ${ticketData.hora}</p>
+                    <p style="text-align:center">Cliente: <b>${ticketData.cliente}</b></p>
+                    <hr/>
+                    ${ticketData.items.map(i => `<div style="display:flex;justify-content:space-between"><span>${i.nombre} x${i.quantity}</span><span>$${(i.price*i.quantity).toFixed(2)}</span></div>`).join('')}
+                    <hr/>
+                    <div class="total" style="display:flex;justify-content:space-between"><span>TOTAL</span><span>$${ticketData.total.toFixed(2)}</span></div>
+                    <div style="display:flex;justify-content:space-between"><span>Pago</span><span>${ticketData.metodoPago}</span></div>
+                    ${ticketData.metodoPago === 'efectivo' ? `<div style="display:flex;justify-content:space-between"><span>Recibido</span><span>$${ticketData.montoRecibido.toFixed(2)}</span></div><div style="display:flex;justify-content:space-between;font-weight:bold;color:green"><span>Vuelto</span><span>$${ticketData.vuelto.toFixed(2)}</span></div>` : ''}
+                    <p class="footer">¡Gracias por su compra!</p>
+                  </body></html>`);
+                  win.document.close();
+                  win.print();
+                }}
+                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-1.5"
+              >
+                🖨️ Imprimir
+              </button>
+            </div>
           </div>
         </div>
       )}
