@@ -6,7 +6,7 @@ import {
   Boxes, Trash2, LogIn, LogOut, Search, UserCheck, 
   FileDown, Image as ImageIcon, Upload, X, Pencil,
   History, Users, ToggleLeft, ToggleRight, RefreshCw, Printer, Receipt, Loader2,
-  Calendar, Activity, BarChart3
+  Calendar, Activity, BarChart3, Eye, EyeOff, Lock, Mail, ShieldCheck, Sparkles
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -24,6 +24,81 @@ ChartJS.register(
   Title, Tooltip, Legend
 );
 
+// Logotipo Oficial Vectorial Premium — Carnicería RM (Opción A: Escudo Gourmet & Calidad)
+export const LogoCarniceriaRM = ({ className = "w-12 h-12" }) => (
+  <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <defs>
+      <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#b91c1c" />
+        <stop offset="45%" stopColor="#881337" />
+        <stop offset="100%" stopColor="#450a0a" />
+      </linearGradient>
+      <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fef08a" />
+        <stop offset="45%" stopColor="#f59e0b" />
+        <stop offset="100%" stopColor="#b45309" />
+      </linearGradient>
+      <filter id="shadowFilter" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="3" stdDeviation="2.5" floodColor="#000000" floodOpacity="0.5" />
+      </filter>
+    </defs>
+    {/* Silueta de Escudo Gourmet */}
+    <path 
+      d="M50 4 L88 18 C88 58 68 85 50 96 C32 85 12 58 12 18 Z" 
+      fill="url(#shieldGrad)" 
+      stroke="url(#goldGrad)" 
+      strokeWidth="3.5"
+      filter="url(#shadowFilter)"
+    />
+    {/* Pespunte dorado interior */}
+    <path 
+      d="M50 11 L81 22 C81 54 64 77 50 87 C36 77 19 54 19 22 Z" 
+      fill="none" 
+      stroke="url(#goldGrad)" 
+      strokeWidth="1.2" 
+      strokeDasharray="2.5 2"
+      opacity="0.85"
+    />
+    {/* Silueta estilizada de cabeza de res y cuernos */}
+    <path 
+      d="M32 29 C34 23 40 21 44 25 C41 28 40 32 43 35 C46 33 54 33 57 35 C60 32 59 28 56 25 C60 21 66 23 68 29 C62 32 58 38 57 42 C55 44 45 44 43 42 C42 38 38 32 32 29 Z" 
+      fill="url(#goldGrad)" 
+    />
+    {/* Tres Estrellas Gourmet de Calidad */}
+    <path d="M50 16 L51.2 19.5 L55 19.8 L52.2 22.2 L53 25.8 L50 23.8 L47 25.8 L47.8 22.2 L45 19.8 L48.8 19.5 Z" fill="url(#goldGrad)" />
+    <circle cx="36" cy="20" r="1.8" fill="url(#goldGrad)" />
+    <circle cx="64" cy="20" r="1.8" fill="url(#goldGrad)" />
+    {/* Monograma RM en el centro */}
+    <text 
+      x="50" 
+      y="66" 
+      textAnchor="middle" 
+      fill="#ffffff" 
+      fontSize="24" 
+      fontWeight="900" 
+      fontFamily="system-ui, -apple-system, sans-serif" 
+      letterSpacing="1.5"
+      style={{ filter: 'drop-shadow(0px 2px 3px rgba(0,0,0,0.8))' }}
+    >
+      RM
+    </text>
+    {/* Cinta / Banner inferior */}
+    <rect x="20" y="73.5" width="60" height="11.5" rx="5.75" fill="#18181b" stroke="url(#goldGrad)" strokeWidth="1.2" />
+    <text 
+      x="50" 
+      y="82" 
+      textAnchor="middle" 
+      fill="url(#goldGrad)" 
+      fontSize="6.8" 
+      fontWeight="900" 
+      letterSpacing="1.2"
+      fontFamily="system-ui, sans-serif"
+    >
+      CARNICERÍA
+    </text>
+  </svg>
+);
+
 export default function App() {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || 'null'));
   const isAdmin = user?.rol === 'admin';
@@ -36,6 +111,7 @@ export default function App() {
   const [authName, setAuthName] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   // Data
   const [products, setProducts] = useState([]);
@@ -791,84 +867,190 @@ export default function App() {
   // Auth Screen
   if (!token) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full border border-slate-100">
-          <div className="flex justify-center mb-4">
-            <div className="p-3 bg-indigo-600 rounded-2xl text-white shadow-lg shadow-indigo-300">
-              <Boxes size={36} />
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
+        {/* Luces de fondo decorativas estilo gourmet */}
+        <div className="absolute top-1/4 -left-20 w-96 h-96 bg-rose-900/25 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-amber-600/15 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full border border-slate-100 overflow-hidden flex flex-col md:flex-row relative z-10 animate-in fade-in zoom-in-95 duration-200">
+          
+          {/* Lado Izquierdo: Vitrina de Marca Carnicería RM (Opción A Gourmet) */}
+          <div className="md:w-5/12 bg-gradient-to-br from-neutral-950 via-rose-950 to-neutral-900 text-white p-8 sm:p-10 flex flex-col justify-between border-b md:border-b-0 md:border-r border-rose-900/40 relative overflow-hidden">
+            {/* Patrón sutil de fondo */}
+            <div className="absolute inset-0 bg-[radial-gradient(#e11d48_1px,transparent_1px)] [background-size:16px_16px] opacity-10 pointer-events-none" />
+            
+            <div className="relative z-10">
+              <div className="flex items-center gap-3.5 mb-6">
+                <LogoCarniceriaRM className="w-14 h-14 flex-shrink-0 drop-shadow-xl" />
+                <div>
+                  <h1 className="text-xl font-black tracking-wide text-white leading-tight">CARNICERÍA RM</h1>
+                  <span className="text-[11px] font-semibold text-amber-400 tracking-wider uppercase">Cortes Selectos & Calidad</span>
+                </div>
+              </div>
+
+              <div className="my-6">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30 mb-3">
+                  <Sparkles size={12} className="text-amber-400" /> Sistema de Gestión Integral
+                </span>
+                <h2 className="text-2xl font-black text-white leading-snug">
+                  Tradición y Calidad en Cada Corte
+                </h2>
+                <p className="text-xs text-rose-200/80 mt-2 leading-relaxed">
+                  Control de inventario de carnes, existencias en tiempo real, punto de venta ágil y facturación electrónica.
+                </p>
+              </div>
+
+              {/* Beneficios clave */}
+              <div className="space-y-2.5 pt-2">
+                <div className="flex items-center gap-2.5 text-xs text-slate-200">
+                  <div className="w-5 h-5 rounded-full bg-rose-800/60 border border-rose-600/40 flex items-center justify-center text-amber-300 text-[10px] font-bold">✓</div>
+                  <span>Pesaje y control de existencias exactas</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-xs text-slate-200">
+                  <div className="w-5 h-5 rounded-full bg-rose-800/60 border border-rose-600/40 flex items-center justify-center text-amber-300 text-[10px] font-bold">✓</div>
+                  <span>Facturación y tickets térmicos al instante</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-xs text-slate-200">
+                  <div className="w-5 h-5 rounded-full bg-rose-800/60 border border-rose-600/40 flex items-center justify-center text-amber-300 text-[10px] font-bold">✓</div>
+                  <span>Monedas duales (Bolivianos Bs / Dólares $)</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative z-10 pt-6 mt-6 border-t border-rose-900/50 flex items-center justify-between text-[11px] text-rose-300/70 font-medium">
+              <span>Carnicería RM © 2026</span>
+              <span className="flex items-center gap-1 text-emerald-400 font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Servidor Activo
+              </span>
             </div>
           </div>
-          <h2 className="text-2xl font-bold text-center text-slate-800">CompraVentaPro</h2>
-          <p className="text-center text-slate-500 text-sm mb-6">MVP de Inventario y Ventas Rápido</p>
 
-          {authError && (
-            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm flex items-center gap-2">
-              <AlertTriangle size={16} />
-              {authError}
+          {/* Lado Derecho: Formulario de Autenticación */}
+          <div className="md:w-7/12 p-8 sm:p-10 flex flex-col justify-center bg-white">
+            <div className="mb-6">
+              <span className="text-[11px] font-extrabold uppercase tracking-widest text-rose-600">Acceso Seguro</span>
+              <h3 className="text-2xl font-black text-slate-900 mt-1">
+                {isRegistering ? 'Crear Cuenta de Acceso' : 'Ingresar al Sistema'}
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                {isRegistering ? 'Completa los datos para registrar un usuario administrador' : 'Ingresa tus credenciales para administrar ventas e inventario'}
+              </p>
             </div>
-          )}
 
-          <form onSubmit={handleAuth} className="space-y-4" autoComplete="off">
-            {isRegistering && (
-              <div>
-                <label className="text-xs font-semibold text-slate-600 uppercase">Nombre Completo</label>
-                <input 
-                  type="text" 
-                  required 
-                  autoComplete="off"
-                  value={authName} 
-                  onChange={(e) => setAuthName(e.target.value)}
-                  className="w-full mt-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" 
-                />
+            {authError && (
+              <div className="mb-5 p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs flex items-center gap-2.5">
+                <AlertTriangle size={18} className="flex-shrink-0 text-rose-600" />
+                <span className="font-medium">{authError}</span>
               </div>
             )}
-            <div>
-              <label className="text-xs font-semibold text-slate-600 uppercase">Correo Electrónico</label>
-              <input 
-                type="email" 
-                required 
-                autoComplete="new-password"
-                placeholder="ejemplo@tienda.com"
-                value={authEmail} 
-                onChange={(e) => setAuthEmail(e.target.value)}
-                className="w-full mt-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" 
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-slate-600 uppercase">Contraseña</label>
-              <input 
-                type="password" 
-                required 
-                autoComplete="new-password"
-                placeholder="••••••••"
-                value={authPassword} 
-                onChange={(e) => setAuthPassword(e.target.value)}
-                className="w-full mt-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" 
-              />
-            </div>
-            <button 
-              type="submit" 
-              disabled={isAuthenticating}
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
-            >
-              {isAuthenticating ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  {isRegistering ? 'Creando cuenta...' : 'Iniciando sesión...'}
-                </>
-              ) : (
-                isRegistering ? 'Crear Cuenta' : 'Iniciar Sesión'
-              )}
-            </button>
-          </form>
 
-          <div className="mt-6 text-center">
-            <button 
-              onClick={() => { setIsRegistering(!isRegistering); setAuthError(''); }}
-              className="text-sm font-medium text-indigo-600 hover:underline"
-            >
-              {isRegistering ? '¿Ya tienes cuenta? Inicia sesión' : '¿Primer usuario? Regístrate aquí'}
-            </button>
+            <form onSubmit={handleAuth} className="space-y-4" autoComplete="off">
+              {isRegistering && (
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Nombre Completo *</label>
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      required 
+                      autoComplete="off"
+                      placeholder="ej. Roberto Morales"
+                      value={authName} 
+                      onChange={(e) => setAuthName(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500 text-sm transition" 
+                    />
+                    <UserCheck size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Correo Electrónico *</label>
+                <div className="relative">
+                  <input 
+                    type="email" 
+                    required 
+                    autoComplete="new-password"
+                    placeholder="ejemplo@tienda.com"
+                    value={authEmail} 
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500 text-sm transition" 
+                  />
+                  <Mail size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Contraseña *</label>
+                <div className="relative">
+                  <input 
+                    type={showPassword ? 'text' : 'password'}
+                    required 
+                    autoComplete="new-password"
+                    placeholder="••••••••"
+                    value={authPassword} 
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    className="w-full pl-10 pr-11 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500 text-sm transition" 
+                  />
+                  <Lock size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
+                  <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-2.5 text-slate-400 hover:text-slate-700 p-1 rounded-lg transition"
+                    title={showPassword ? "Ocultar contraseña" : "Ver contraseña"}
+                  >
+                    {showPassword ? <EyeOff size={18} className="text-rose-600" /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={isAuthenticating}
+                className="w-full py-3 bg-gradient-to-r from-red-700 via-rose-700 to-red-800 hover:from-red-800 hover:to-rose-900 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold rounded-xl transition shadow-lg shadow-rose-900/20 flex items-center justify-center gap-2 mt-2"
+              >
+                {isAuthenticating ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    {isRegistering ? 'Creando cuenta...' : 'Iniciando sesión...'}
+                  </>
+                ) : (
+                  <>
+                    <LogIn size={18} />
+                    {isRegistering ? 'Crear Cuenta' : 'Iniciar Sesión'}
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Accesos Rápidos Demo */}
+            <div className="mt-5 pt-4 border-t border-slate-100">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center mb-2">Acceso Rápido de Prueba</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button 
+                  type="button"
+                  onClick={() => { setAuthEmail('admin@tienda.com'); setAuthPassword('admin123'); }}
+                  className="py-1.5 px-2 bg-slate-50 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 transition flex items-center justify-center gap-1.5"
+                >
+                  <span>👑</span> Administrador
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => { setAuthEmail('vendedor@tienda.com'); setAuthPassword('vendedor123'); }}
+                  className="py-1.5 px-2 bg-slate-50 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 transition flex items-center justify-center gap-1.5"
+                >
+                  <span>🛒</span> Vendedor
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-5 text-center">
+              <button 
+                onClick={() => { setIsRegistering(!isRegistering); setAuthError(''); }}
+                className="text-xs font-bold text-rose-700 hover:text-rose-800 hover:underline transition"
+              >
+                {isRegistering ? '¿Ya tienes cuenta? Inicia sesión aquí' : '¿Primer usuario? Regístrate aquí'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -894,12 +1076,10 @@ export default function App() {
       {/* Sidebar */}
       <aside className="w-full md:w-64 bg-slate-900 text-white flex flex-col p-5 shadow-xl">
         <div className="flex items-center gap-3 mb-8">
-          <div className="p-2 bg-indigo-600 rounded-xl">
-            <Boxes size={24} />
-          </div>
+          <LogoCarniceriaRM className="w-10 h-10 flex-shrink-0 drop-shadow-md" />
           <div>
-            <h1 className="font-bold text-lg leading-tight">CompraVentaPro</h1>
-            <span className="text-xs text-indigo-400 font-mono">FastAPI + Supabase</span>
+            <h1 className="font-extrabold text-base leading-tight tracking-wide text-white">Carnicería RM</h1>
+            <span className="text-[11px] text-amber-400 font-semibold tracking-wider uppercase">Cortes Selectos</span>
           </div>
         </div>
 
