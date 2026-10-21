@@ -73,6 +73,7 @@ class Producto(Base):
     sku            = Column(String(50), unique=True, index=True, nullable=False)
     nombre         = Column(String(150), nullable=False)
     descripcion    = Column(Text)
+    imagen_url     = Column(Text, nullable=True)
     precio_compra  = Column(Float, default=0.0, nullable=False)
     precio_venta   = Column(Float, nullable=False)
     stock_actual   = Column(Integer, default=0, nullable=False)

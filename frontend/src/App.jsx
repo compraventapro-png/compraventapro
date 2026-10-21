@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from './api';
 import { 
   Package, ShoppingCart, ShoppingBag, LayoutDashboard, 
   Plus, AlertTriangle, CheckCircle, TrendingUp, DollarSign,
-  Boxes, Trash2, LogIn, LogOut, Search, UserCheck
+  Boxes, Trash2, LogIn, LogOut, Search, UserCheck, 
+  FileDown, Image as ImageIcon, Upload, X
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('pos'); // 'pos', 'inventory', 'purchases', 'dashboard'
+  const [activeTab, setActiveTab] = useState('pos'); // 'pos', 'inventory', 'dashboard'
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || 'null'));
 
@@ -22,6 +25,8 @@ export default function App() {
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [inventorySearch, setInventorySearch] = useState('');
+  const [inventoryFilter, setInventoryFilter] = useState('all'); // 'all', 'low_stock'
   const [dashboardData, setDashboardData] = useState(null);
 
   // Cart for POS (Sale)
@@ -31,9 +36,11 @@ export default function App() {
 
   // New Product Modal/Form
   const [newProduct, setNewProduct] = useState({
-    sku: '', nombre: '', descripcion: '', precio_compra: '', precio_venta: '', stock_actual: 0, stock_minimo: 5
+    sku: '', nombre: '', descripcion: '', imagen_url: '', precio_compra: '', precio_venta: '', stock_actual: 0, stock_minimo: 5
   });
+  const [imagePreview, setImagePreview] = useState('');
   const [showProductModal, setShowProductModal] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Quick Purchase (Stock in)
   const [purchaseProduct, setPurchaseProduct] = useState(null);
@@ -73,6 +80,158 @@ export default function App() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  // Image upload and compress to Base64
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Por favor selecciona un archivo de imagen válido');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        // Redimensionar para optimizar peso (máx 350x350)
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 350;
+        const MAX_HEIGHT = 350;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+        setImagePreview(dataUrl);
+        setNewProduct(prev => ({ ...prev, imagen_url: dataUrl }));
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeImage = () => {
+    setImagePreview('');
+    setNewProduct(prev => ({ ...prev, imagen_url: '' }));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // PDF Export
+  const exportPDF = () => {
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Encabezado
+    doc.setFillColor(30, 41, 59); // slate-800
+    doc.rect(0, 0, pageWidth, 26, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CompraVentaPro — Reporte de Inventario', 14, 13);
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Fecha de emisión: ${new Date().toLocaleDateString('es-ES')} ${new Date().toLocaleTimeString('es-ES')}`, 14, 20);
+    doc.text(`Generado por: ${user?.nombre || user?.email} (${user?.rol?.toUpperCase()})`, pageWidth - 14, 20, { align: 'right' });
+
+    // Preparar filas para la tabla
+    const tableData = products.map((p, idx) => {
+      const stockStatus = p.stock_actual <= 0 ? 'AGOTADO' : (p.stock_actual <= p.stock_minimo ? 'BAJO' : 'OK');
+      return [
+        (idx + 1).toString(),
+        '', // Espacio para la imagen
+        p.sku,
+        p.nombre,
+        isAdmin ? `$${p.precio_compra.toFixed(2)}` : 'N/A',
+        `$${p.precio_venta.toFixed(2)}`,
+        `${p.stock_actual} unid.`,
+        stockStatus
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 32,
+      head: [['#', 'Foto', 'SKU', 'Producto', 'P. Compra', 'P. Venta', 'Stock', 'Estado']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [79, 70, 229], // Indigo 600
+        textColor: 255,
+        fontStyle: 'bold',
+        fontSize: 9,
+        halign: 'center'
+      },
+      styles: {
+        fontSize: 8,
+        valign: 'middle',
+        minCellHeight: 14,
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 8 },
+        1: { halign: 'center', cellWidth: 16 },
+        2: { fontStyle: 'bold', cellWidth: 24 },
+        3: { cellWidth: 50 },
+        4: { halign: 'right', cellWidth: 22 },
+        5: { halign: 'right', fontStyle: 'bold', cellWidth: 22 },
+        6: { halign: 'center', cellWidth: 20 },
+        7: { halign: 'center', fontStyle: 'bold', cellWidth: 20 }
+      },
+      didDrawCell: (data) => {
+        // Dibujar miniatura de la imagen si existe
+        if (data.column.index === 1 && data.cell.section === 'body') {
+          const product = products[data.row.index];
+          if (product && product.imagen_url && product.imagen_url.startsWith('data:image')) {
+            try {
+              const dim = 11;
+              const x = data.cell.x + (data.cell.width - dim) / 2;
+              const y = data.cell.y + (data.cell.height - dim) / 2;
+              doc.addImage(product.imagen_url, 'JPEG', x, y, dim, dim);
+            } catch (err) {
+              console.error('Error dibujando imagen en PDF:', err);
+            }
+          }
+        }
+      }
+    });
+
+    // Resumen al pie
+    const finalY = doc.lastAutoTable.finalY + 10;
+    const totalStock = products.reduce((acc, p) => acc + p.stock_actual, 0);
+    const totalValuado = products.reduce((acc, p) => acc + (p.stock_actual * p.precio_venta), 0);
+
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(14, finalY, pageWidth - 28, 22, 3, 3, 'F');
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Resumen General:', 18, finalY + 7);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Total de Artículos en Catálogo: ${products.length}`, 18, finalY + 14);
+    doc.text(`Unidades Totales en Existencia: ${totalStock}`, 100, finalY + 14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Valor Total de Venta: $${totalValuado.toFixed(2)}`, pageWidth - 18, finalY + 14, { align: 'right' });
+
+    doc.save(`Inventario_CompraVentaPro_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   // Login / Register handler
@@ -124,7 +283,14 @@ export default function App() {
         alert('Producto sin stock disponible');
         return;
       }
-      setCart([...cart, { product_id: product.id, nombre: product.nombre, price: product.precio_venta, quantity: 1, stock_max: product.stock_actual }]);
+      setCart([...cart, { 
+        product_id: product.id, 
+        nombre: product.nombre, 
+        price: product.precio_venta, 
+        quantity: 1, 
+        stock_max: product.stock_actual,
+        imagen_url: product.imagen_url
+      }]);
     }
   };
 
@@ -149,7 +315,7 @@ export default function App() {
       setSaleSuccess(`¡Venta procesada con éxito por un total de $${cartTotal.toFixed(2)}!`);
       setCart([]);
       loadProducts();
-      loadDashboard();
+      if (isAdmin) loadDashboard();
       setTimeout(() => setSaleSuccess(''), 4000);
     } catch (err) {
       setSaleError(err.response?.data?.detail || 'Error al procesar la venta');
@@ -164,15 +330,17 @@ export default function App() {
         sku: newProduct.sku,
         nombre: newProduct.nombre,
         descripcion: newProduct.descripcion,
+        imagen_url: newProduct.imagen_url || null,
         precio_compra: parseFloat(newProduct.precio_compra || 0),
         precio_venta: parseFloat(newProduct.precio_venta),
         stock_actual: parseInt(newProduct.stock_actual || 0),
         stock_minimo: parseInt(newProduct.stock_minimo || 5)
       });
       setShowProductModal(false);
-      setNewProduct({ sku: '', nombre: '', descripcion: '', precio_compra: '', precio_venta: '', stock_actual: 0, stock_minimo: 5 });
+      setNewProduct({ sku: '', nombre: '', descripcion: '', imagen_url: '', precio_compra: '', precio_venta: '', stock_actual: 0, stock_minimo: 5 });
+      setImagePreview('');
       loadProducts();
-      loadDashboard();
+      if (isAdmin) loadDashboard();
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al crear producto');
     }
@@ -194,7 +362,7 @@ export default function App() {
       setPurchaseMsg('¡Stock incrementado con éxito!');
       setPurchaseProduct(null);
       loadProducts();
-      loadDashboard();
+      if (isAdmin) loadDashboard();
       setTimeout(() => setPurchaseMsg(''), 3000);
     } catch (err) {
       alert(err.response?.data?.detail || 'Error en compra');
@@ -231,7 +399,7 @@ export default function App() {
                   autoComplete="off"
                   value={authName} 
                   onChange={(e) => setAuthName(e.target.value)}
-                  className="w-full mt-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                  className="w-full mt-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" 
                 />
               </div>
             )}
@@ -280,10 +448,19 @@ export default function App() {
     );
   }
 
-  const filteredProducts = products.filter(p => 
+  const filteredPOSProducts = products.filter(p => 
     p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
     p.sku.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const filteredInventoryProducts = products.filter(p => {
+    const matchesSearch = p.nombre.toLowerCase().includes(inventorySearch.toLowerCase()) || 
+                          p.sku.toLowerCase().includes(inventorySearch.toLowerCase());
+    if (inventoryFilter === 'low_stock') {
+      return matchesSearch && p.stock_actual <= p.stock_minimo;
+    }
+    return matchesSearch;
+  });
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
@@ -376,21 +553,22 @@ export default function App() {
 
               {loadingProducts ? (
                 <div className="flex-1 flex items-center justify-center text-slate-400">Cargando catálogo...</div>
-              ) : filteredProducts.length === 0 ? (
+              ) : filteredPOSProducts.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white rounded-2xl border border-dashed border-slate-300 text-center">
                   <Package size={48} className="text-slate-300 mb-3" />
-                  <p className="font-semibold text-slate-700">No hay productos en inventario</p>
-                  <p className="text-xs text-slate-400 mb-4">Empieza registrando tu primer producto</p>
-                  <button 
-                    onClick={() => setShowProductModal(true)}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold"
-                  >
-                    + Crear Producto
-                  </button>
+                  <p className="font-semibold text-slate-700">No hay productos que coincidan</p>
+                  {isAdmin && (
+                    <button 
+                      onClick={() => setShowProductModal(true)}
+                      className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold"
+                    >
+                      + Crear Producto
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {filteredProducts.map(p => (
+                  {filteredPOSProducts.map(p => (
                     <div 
                       key={p.id} 
                       className={`p-4 bg-white rounded-2xl border transition shadow-sm hover:shadow-md flex flex-col justify-between ${
@@ -398,6 +576,18 @@ export default function App() {
                       }`}
                     >
                       <div>
+                        {/* Foto del producto en la tarjeta */}
+                        <div className="w-full h-36 bg-slate-100 rounded-xl mb-3 overflow-hidden flex items-center justify-center border border-slate-100">
+                          {p.imagen_url ? (
+                            <img src={p.imagen_url} alt={p.nombre} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="flex flex-col items-center text-slate-300">
+                              <ImageIcon size={32} />
+                              <span className="text-[10px] mt-1 text-slate-400">Sin foto</span>
+                            </div>
+                          )}
+                        </div>
+
                         <div className="flex justify-between items-start mb-2">
                           <span className="text-xs font-mono px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md">{p.sku}</span>
                           <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
@@ -475,8 +665,15 @@ export default function App() {
               ) : (
                 <div className="space-y-3 mb-6 max-h-80 overflow-y-auto pr-1">
                   {cart.map(item => (
-                    <div key={item.product_id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <div className="flex-1 pr-2">
+                    <div key={item.product_id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 gap-3">
+                      <div className="w-10 h-10 bg-white rounded-lg overflow-hidden border border-slate-200 flex items-center justify-center flex-shrink-0">
+                        {item.imagen_url ? (
+                          <img src={item.imagen_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <Package size={18} className="text-slate-300" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-slate-800 truncate">{item.nombre}</p>
                         <p className="text-xs text-slate-500">${item.price.toFixed(2)} c/u</p>
                       </div>
@@ -522,7 +719,7 @@ export default function App() {
         {/* TAB: INVENTARIO */}
         {activeTab === 'inventory' && (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
                 <h2 className="text-xl font-bold text-slate-800">
                   {isAdmin ? 'Catálogo de Inventario' : 'Catálogo de Productos y Precios'}
@@ -531,21 +728,65 @@ export default function App() {
                   {isAdmin ? 'Gestión de existencias sincronizada con Supabase PostgreSQL' : 'Consulta de existencias y precios al público'}
                 </p>
               </div>
-              {isAdmin && (
+              <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                {/* Botón Descargar Reporte PDF */}
                 <button 
-                  onClick={() => setShowProductModal(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-md transition"
+                  onClick={exportPDF}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold shadow-md transition"
                 >
-                  <Plus size={16} />
-                  Nuevo Producto
+                  <FileDown size={16} />
+                  Descargar PDF
                 </button>
-              )}
+                {isAdmin && (
+                  <button 
+                    onClick={() => setShowProductModal(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-md transition"
+                  >
+                    <Plus size={16} />
+                    Nuevo Producto
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Barra de Filtros y Búsqueda en Inventario */}
+            <div className="p-4 bg-slate-50/60 border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="relative w-full sm:w-80">
+                <Search size={16} className="absolute left-3.5 top-3 text-slate-400" />
+                <input 
+                  type="text" 
+                  placeholder="Filtrar por nombre o SKU..." 
+                  value={inventorySearch}
+                  onChange={(e) => setInventorySearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <button 
+                  onClick={() => setInventoryFilter('all')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                    inventoryFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-white border text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  Todos ({products.length})
+                </button>
+                <button 
+                  onClick={() => setInventoryFilter('low_stock')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${
+                    inventoryFilter === 'low_stock' ? 'bg-amber-600 text-white' : 'bg-white border text-amber-700 hover:bg-amber-50'
+                  }`}
+                >
+                  <AlertTriangle size={12} />
+                  Stock Bajo ({products.filter(p => p.stock_actual <= p.stock_minimo).length})
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 text-slate-500 uppercase text-xs border-b border-slate-200">
                   <tr>
+                    <th className="px-4 py-3 font-semibold text-center">Foto</th>
                     <th className="px-6 py-3 font-semibold">SKU</th>
                     <th className="px-6 py-3 font-semibold">Producto</th>
                     {isAdmin && <th className="px-6 py-3 font-semibold">P. Compra</th>}
@@ -556,13 +797,24 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {products.length === 0 ? (
+                  {filteredInventoryProducts.length === 0 ? (
                     <tr>
-                      <td colSpan={isAdmin ? 7 : 5} className="px-6 py-8 text-center text-slate-400">No hay productos registrados</td>
+                      <td colSpan={isAdmin ? 8 : 6} className="px-6 py-8 text-center text-slate-400">
+                        No se encontraron productos con el filtro aplicado
+                      </td>
                     </tr>
                   ) : (
-                    products.map(p => (
+                    filteredInventoryProducts.map(p => (
                       <tr key={p.id} className="hover:bg-slate-50/50 transition">
+                        <td className="px-4 py-3 text-center">
+                          <div className="w-12 h-12 bg-slate-100 rounded-xl overflow-hidden mx-auto border border-slate-200 flex items-center justify-center">
+                            {p.imagen_url ? (
+                              <img src={p.imagen_url} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <ImageIcon size={20} className="text-slate-300" />
+                            )}
+                          </div>
+                        </td>
                         <td className="px-6 py-4 font-mono font-semibold text-slate-700">{p.sku}</td>
                         <td className="px-6 py-4">
                           <p className="font-bold text-slate-800">{p.nombre}</p>
@@ -678,12 +930,54 @@ export default function App() {
         )}
       </main>
 
-      {/* MODAL: CREAR PRODUCTO */}
+      {/* MODAL: CREAR PRODUCTO (CON SUBIDA DE FOTO) */}
       {showProductModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 my-8">
             <h3 className="text-lg font-bold text-slate-800 mb-4">Registrar Nuevo Producto</h3>
             <form onSubmit={handleCreateProduct} className="space-y-3">
+              {/* Selector de Foto con Previsualización */}
+              <div>
+                <label className="text-xs font-semibold text-slate-600 block mb-1">Foto del Producto (Desde dispositivo)</label>
+                <div className="flex items-center gap-3">
+                  <div className="w-20 h-20 bg-slate-100 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden relative flex-shrink-0">
+                    {imagePreview ? (
+                      <>
+                        <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                        <button 
+                          type="button" 
+                          onClick={removeImage} 
+                          className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 hover:bg-rose-600 transition"
+                          title="Quitar foto"
+                        >
+                          <X size={12} />
+                        </button>
+                      </>
+                    ) : (
+                      <ImageIcon size={24} className="text-slate-400" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      ref={fileInputRef}
+                      onChange={handleImageChange}
+                      className="hidden" 
+                      id="product-photo-input"
+                    />
+                    <label 
+                      htmlFor="product-photo-input"
+                      className="inline-flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer transition border border-slate-200"
+                    >
+                      <Upload size={14} />
+                      {imagePreview ? 'Cambiar Foto' : 'Cargar Imagen'}
+                    </label>
+                    <p className="text-[10px] text-slate-400 mt-1">PNG, JPG o WEBP (se optimiza automáticamente).</p>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="text-xs font-semibold text-slate-600">Código de Barra / SKU *</label>
                 <input 
@@ -703,6 +997,16 @@ export default function App() {
                   placeholder="ej. Mouse Inalámbrico Logitech"
                   value={newProduct.nombre}
                   onChange={(e) => setNewProduct({ ...newProduct, nombre: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border rounded-xl text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600">Descripción (Opcional)</label>
+                <input 
+                  type="text" 
+                  placeholder="Detalles breves del artículo"
+                  value={newProduct.descripcion}
+                  onChange={(e) => setNewProduct({ ...newProduct, descripcion: e.target.value })}
                   className="w-full mt-1 px-3 py-2 border rounded-xl text-sm"
                 />
               </div>
