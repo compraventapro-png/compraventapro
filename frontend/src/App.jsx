@@ -4,7 +4,7 @@ import {
   Package, ShoppingCart, ShoppingBag, LayoutDashboard, 
   Plus, AlertTriangle, CheckCircle, TrendingUp, DollarSign,
   Boxes, Trash2, LogIn, LogOut, Search, UserCheck, 
-  FileDown, Image as ImageIcon, Upload, X
+  FileDown, Image as ImageIcon, Upload, X, Pencil
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -47,6 +47,12 @@ export default function App() {
   const [purchaseQty, setPurchaseQty] = useState(5);
   const [purchasePrice, setPurchasePrice] = useState('');
   const [purchaseMsg, setPurchaseMsg] = useState('');
+
+  // Edit & Delete
+  const [editingProduct, setEditingProduct] = useState(null); // producto que se está editando
+  const [editImagePreview, setEditImagePreview] = useState('');
+  const editFileInputRef = useRef(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // producto a eliminar
 
   const isAdmin = user?.rol === 'admin';
 
@@ -366,6 +372,82 @@ export default function App() {
       setTimeout(() => setPurchaseMsg(''), 3000);
     } catch (err) {
       alert(err.response?.data?.detail || 'Error en compra');
+    }
+  };
+
+  // Abrir modal de edición con datos del producto
+  const openEditModal = (producto) => {
+    setEditingProduct({
+      id: producto.id,
+      sku: producto.sku,
+      nombre: producto.nombre,
+      descripcion: producto.descripcion || '',
+      imagen_url: producto.imagen_url || '',
+      precio_compra: producto.precio_compra,
+      precio_venta: producto.precio_venta,
+      stock_actual: producto.stock_actual,
+      stock_minimo: producto.stock_minimo,
+    });
+    setEditImagePreview(producto.imagen_url || '');
+  };
+
+  // Cambio de imagen en modal de edición
+  const handleEditImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { alert('Selecciona una imagen válida'); return; }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 350;
+        let w = img.width, h = img.height;
+        if (w > h) { if (w > MAX) { h *= MAX/w; w = MAX; } }
+        else { if (h > MAX) { w *= MAX/h; h = MAX; } }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        setEditImagePreview(dataUrl);
+        setEditingProduct(prev => ({ ...prev, imagen_url: dataUrl }));
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Guardar cambios de edición
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
+    try {
+      await api.put(`/productos/${editingProduct.id}`, {
+        sku: editingProduct.sku,
+        nombre: editingProduct.nombre,
+        descripcion: editingProduct.descripcion,
+        imagen_url: editingProduct.imagen_url || null,
+        precio_compra: parseFloat(editingProduct.precio_compra),
+        precio_venta: parseFloat(editingProduct.precio_venta),
+        stock_actual: parseInt(editingProduct.stock_actual),
+        stock_minimo: parseInt(editingProduct.stock_minimo),
+      });
+      setEditingProduct(null);
+      setEditImagePreview('');
+      loadProducts();
+      if (isAdmin) loadDashboard();
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al guardar cambios');
+    }
+  };
+
+  // Eliminar (desactivar) producto con confirmación
+  const handleDeleteProduct = async (producto) => {
+    try {
+      await api.delete(`/productos/${producto.id}`);
+      setDeleteConfirm(null);
+      loadProducts();
+      if (isAdmin) loadDashboard();
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al eliminar producto');
     }
   };
 
@@ -837,12 +919,28 @@ export default function App() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           {isAdmin ? (
-                            <button 
-                              onClick={() => { setPurchaseProduct(p); setPurchasePrice(p.precio_compra); }}
-                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition"
-                            >
-                              + Abastecer
-                            </button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button 
+                                onClick={() => { setPurchaseProduct(p); setPurchasePrice(p.precio_compra); }}
+                                className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition"
+                              >
+                                + Abastecer
+                              </button>
+                              <button
+                                onClick={() => openEditModal(p)}
+                                className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg transition"
+                                title="Editar producto"
+                              >
+                                <Pencil size={15} />
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirm(p)}
+                                className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition"
+                                title="Eliminar producto"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
                           ) : (
                             <button 
                               onClick={() => { setActiveTab('pos'); addToCart(p); }}
@@ -1071,6 +1169,124 @@ export default function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDITAR PRODUCTO */}
+      {editingProduct && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 my-8">
+            <h3 className="text-lg font-bold text-slate-800 mb-1">Editar Producto</h3>
+            <p className="text-xs text-slate-500 mb-4">SKU: <span className="font-mono font-bold">{editingProduct.sku}</span></p>
+            <form onSubmit={handleSaveEdit} className="space-y-3">
+              {/* Foto */}
+              <div>
+                <label className="text-xs font-semibold text-slate-600 block mb-1">Foto del Producto</label>
+                <div className="flex items-center gap-3">
+                  <div className="w-20 h-20 bg-slate-100 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden relative flex-shrink-0">
+                    {editImagePreview ? (
+                      <>
+                        <img src={editImagePreview} alt="Preview" className="w-full h-full object-cover" />
+                        <button type="button" onClick={() => { setEditImagePreview(''); setEditingProduct(prev => ({ ...prev, imagen_url: '' })); if (editFileInputRef.current) editFileInputRef.current.value = ''; }}
+                          className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 hover:bg-rose-600 transition" title="Quitar foto">
+                          <X size={12} />
+                        </button>
+                      </>
+                    ) : (<ImageIcon size={24} className="text-slate-400" />)}
+                  </div>
+                  <div className="flex-1">
+                    <input type="file" accept="image/*" ref={editFileInputRef} onChange={handleEditImageChange} className="hidden" id="edit-photo-input" />
+                    <label htmlFor="edit-photo-input" className="inline-flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer transition border border-slate-200">
+                      <Upload size={14} />
+                      {editImagePreview ? 'Cambiar Foto' : 'Cargar Imagen'}
+                    </label>
+                    <p className="text-[10px] text-slate-400 mt-1">PNG, JPG o WEBP (se optimiza automáticamente).</p>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600">Código / SKU *</label>
+                <input type="text" required value={editingProduct.sku}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, sku: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border rounded-xl text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600">Nombre del Producto *</label>
+                <input type="text" required value={editingProduct.nombre}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, nombre: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border rounded-xl text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600">Descripción</label>
+                <input type="text" value={editingProduct.descripcion}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, descripcion: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border rounded-xl text-sm" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-600">Precio Compra ($)</label>
+                  <input type="number" step="0.01" value={editingProduct.precio_compra}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, precio_compra: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 border rounded-xl text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600">Precio Venta ($) *</label>
+                  <input type="number" step="0.01" required value={editingProduct.precio_venta}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, precio_venta: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 border rounded-xl text-sm" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-600">Stock Actual</label>
+                  <input type="number" value={editingProduct.stock_actual}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, stock_actual: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 border rounded-xl text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600">Stock Mínimo</label>
+                  <input type="number" value={editingProduct.stock_minimo}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, stock_minimo: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 border rounded-xl text-sm" />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-4">
+                <button type="button" onClick={() => { setEditingProduct(null); setEditImagePreview(''); }}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm">
+                  Cancelar
+                </button>
+                <button type="submit" className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl text-sm shadow-md">
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRMAR ELIMINACIÓN */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-center">
+            <div className="w-14 h-14 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={28} className="text-rose-600" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 mb-1">¿Eliminar producto?</h3>
+            <p className="text-sm text-slate-500 mb-1">Vas a desactivar:</p>
+            <p className="font-bold text-slate-800 mb-1">{deleteConfirm.nombre}</p>
+            <p className="text-xs text-slate-400 mb-5">SKU: {deleteConfirm.sku} · Stock: {deleteConfirm.stock_actual} unid.</p>
+            <p className="text-xs text-rose-600 bg-rose-50 rounded-xl p-2 mb-5">El producto dejará de aparecer en el catálogo y el POS.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteConfirm(null)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm">
+                Cancelar
+              </button>
+              <button onClick={() => handleDeleteProduct(deleteConfirm)}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-sm shadow-md">
+                Sí, eliminar
+              </button>
+            </div>
           </div>
         </div>
       )}
