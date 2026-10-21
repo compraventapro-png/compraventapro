@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from './api';
 import { 
   Package, ShoppingCart, ShoppingBag, LayoutDashboard, 
-  Plus, AlertTriangle, CheckCircle, TrendingUp, DollarSign,
+  Plus, Minus, AlertTriangle, CheckCircle, TrendingUp, DollarSign,
   Boxes, Trash2, LogIn, LogOut, Search, UserCheck, 
   FileDown, Image as ImageIcon, Upload, X, Pencil,
   History, Users, ToggleLeft, ToggleRight, RefreshCw
@@ -407,6 +407,31 @@ export default function App() {
         imagen_url: product.imagen_url
       }]);
     }
+  };
+
+  const updateCartQuantity = (productId, newQuantity) => {
+    const item = cart.find(i => i.product_id === productId);
+    if (!item) return;
+
+    if (newQuantity <= 0) {
+      removeFromCart(productId);
+      return;
+    }
+
+    if (newQuantity > item.stock_max) {
+      showToast(`Stock máximo disponible: ${item.stock_max} unid.`, 'warning');
+      setCart(cart.map(i => i.product_id === productId ? { ...i, quantity: item.stock_max } : i));
+      return;
+    }
+
+    setCart(cart.map(i => i.product_id === productId ? { ...i, quantity: newQuantity } : i));
+  };
+
+  const clearCart = () => {
+    setCart([]);
+    setMontoRecibido('');
+    setClienteNombre('');
+    setSaleError('');
   };
 
   const removeFromCart = (productId) => {
@@ -876,11 +901,15 @@ export default function App() {
                             onClick={() => addToCart(p)}
                             disabled={p.stock_actual <= 0}
                             className={`flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
-                              p.stock_actual <= 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                              p.stock_actual <= 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 
+                              cart.some(item => item.product_id === p.id) ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm' :
+                              'bg-indigo-600 hover:bg-indigo-700 text-white'
                             }`}
                           >
                             <ShoppingCart size={14} />
-                            Vender
+                            {cart.some(item => item.product_id === p.id) 
+                              ? `En carrito (${cart.find(item => item.product_id === p.id).quantity}) +` 
+                              : 'Vender'}
                           </button>
                         </div>
                       </div>
@@ -895,9 +924,20 @@ export default function App() {
               <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
                 <ShoppingCart className="text-indigo-600" size={20} />
                 <h2 className="font-bold text-slate-800 text-lg">Carrito de Venta</h2>
-                <span className="ml-auto bg-indigo-50 text-indigo-700 text-xs px-2.5 py-1 rounded-full font-bold">
-                  {cart.reduce((a, b) => a + b.quantity, 0)} items
-                </span>
+                <div className="ml-auto flex items-center gap-2">
+                  <span className="bg-indigo-50 text-indigo-700 text-xs px-2.5 py-1 rounded-full font-bold">
+                    {cart.reduce((a, b) => a + b.quantity, 0)} items
+                  </span>
+                  {cart.length > 0 && (
+                    <button
+                      onClick={clearCart}
+                      className="text-[11px] font-semibold text-rose-500 hover:text-rose-700 hover:underline"
+                      title="Vaciar todo el carrito"
+                    >
+                      Vaciar
+                    </button>
+                  )}
+                </div>
               </div>
 
               {saleError && (
@@ -911,33 +951,74 @@ export default function App() {
                 <div className="py-10 text-center text-slate-400 flex flex-col items-center">
                   <ShoppingBag size={40} className="mb-2 text-slate-300" />
                   <p className="text-sm">El carrito está vacío</p>
-                  <p className="text-xs text-slate-400">Haz clic en "Vender" en cualquier producto</p>
+                  <p className="text-xs text-slate-400">Haz clic en "Vender" o "+ Añadir" en cualquier producto</p>
                 </div>
               ) : (
-                <div className="space-y-2 mb-4 max-h-52 overflow-y-auto pr-1">
+                <div className="space-y-2 mb-4 max-h-72 overflow-y-auto pr-1">
                   {cart.map(item => (
-                    <div key={item.product_id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100 gap-2">
-                      <div className="w-9 h-9 bg-white rounded-lg overflow-hidden border border-slate-200 flex items-center justify-center flex-shrink-0">
-                        {item.imagen_url ? (
-                          <img src={item.imagen_url} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <Package size={16} className="text-slate-300" />
-                        )}
+                    <div key={item.product_id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="w-10 h-10 bg-white rounded-lg overflow-hidden border border-slate-200 flex items-center justify-center flex-shrink-0">
+                          {item.imagen_url ? (
+                            <img src={item.imagen_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <Package size={16} className="text-slate-300" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate">{item.nombre}</p>
+                          <p className="text-[11px] text-slate-500">{currencySymbol}{item.price.toFixed(2)} c/u</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-black text-slate-900">
+                            {currencySymbol}{(item.price * item.quantity).toFixed(2)}
+                          </p>
+                          <button 
+                            onClick={() => removeFromCart(item.product_id)} 
+                            className="text-[10px] text-slate-400 hover:text-rose-600 transition inline-flex items-center gap-0.5 mt-0.5"
+                          >
+                            <Trash2 size={11} /> Quitar
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-800 truncate">{item.nombre}</p>
-                        <p className="text-xs text-slate-500">{currencySymbol}{item.price.toFixed(2)} c/u</p>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-semibold px-1.5 py-0.5 bg-white rounded-lg border border-slate-200">
-                          x{item.quantity}
-                        </span>
-                        <span className="text-xs font-bold text-slate-900 w-16 text-right">
-                          {currencySymbol}{(item.price * item.quantity).toFixed(2)}
-                        </span>
-                        <button onClick={() => removeFromCart(item.product_id)} className="text-slate-400 hover:text-rose-500 p-0.5">
-                          <Trash2 size={14} />
-                        </button>
+
+                      {/* Control Interactivo de Cantidad */}
+                      <div className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">
+                        <span className="text-[11px] font-semibold text-slate-500">Cantidad (máx. {item.stock_max}):</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => updateCartQuantity(item.product_id, item.quantity - 1)}
+                            className="w-6 h-6 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition font-bold"
+                            title="Disminuir"
+                          >
+                            <Minus size={12} />
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            max={item.stock_max}
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              if (!isNaN(val)) updateCartQuantity(item.product_id, val);
+                            }}
+                            className="w-12 text-center text-xs font-bold text-slate-800 border rounded py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateCartQuantity(item.product_id, item.quantity + 1)}
+                            disabled={item.quantity >= item.stock_max}
+                            className={`w-6 h-6 rounded-md flex items-center justify-center transition font-bold ${
+                              item.quantity >= item.stock_max
+                                ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                            }`}
+                            title="Aumentar"
+                          >
+                            <Plus size={12} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
