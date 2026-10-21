@@ -17,9 +17,9 @@ from database import get_db
 
 load_dotenv()
 
-SECRET_KEY  = os.getenv("SECRET_KEY", "clave_dev_insegura")
+SECRET_KEY  = os.getenv("SECRET_KEY", "mvp_compra_venta_super_secreto_seguro_2026_jwt_token_key")
 ALGORITHM   = os.getenv("ALGORITHM", "HS256")
-EXPIRE_MINS = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+EXPIRE_MINS = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "43200"))  # 30 días para sesión duradera
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 

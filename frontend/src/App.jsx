@@ -48,6 +48,19 @@ export default function App() {
     localStorage.setItem('moneda', nueva);
   };
 
+  // Sistema de Notificaciones Toast elegante
+  const [toast, setToast] = useState(null); // { type: 'success' | 'error' | 'warning' | 'info', message: '' }
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+  };
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   // Historial de ventas
   const [ventas, setVentas] = useState([]);
   const [loadingVentas, setLoadingVentas] = useState(false);
@@ -89,6 +102,24 @@ export default function App() {
   const [deleteConfirm, setDeleteConfirm] = useState(null); // producto a eliminar
 
   const isAdmin = user?.rol === 'admin';
+
+  useEffect(() => {
+    // Interceptor global para capturar sesiones expiradas
+    const interceptor = api.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          const detail = error.response?.data?.detail;
+          if (detail && typeof detail === 'string' && detail.toLowerCase().includes('token')) {
+            showToast('Tu sesión ha expirado. Por favor ingresa nuevamente.', 'error');
+            handleLogout();
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+    return () => api.interceptors.response.eject(interceptor);
+  }, []);
 
   useEffect(() => {
     if (token) {
@@ -155,14 +186,16 @@ export default function App() {
       setShowUserModal(false);
       setNewUser({ nombre: '', email: '', password: '', rol: 'vendedor' });
       loadUsuarios();
-    } catch (err) { alert(err.response?.data?.detail || 'Error al crear usuario'); }
+      showToast('Usuario creado con éxito', 'success');
+    } catch (err) { showToast(err.response?.data?.detail || 'Error al crear usuario', 'error'); }
   };
 
   const toggleUsuario = async (id) => {
     try {
       await api.patch(`/usuarios/${id}/toggle`);
       loadUsuarios();
-    } catch (err) { alert(err.response?.data?.detail || 'Error'); }
+      showToast('Estado del usuario actualizado', 'info');
+    } catch (err) { showToast(err.response?.data?.detail || 'Error', 'error'); }
   };
 
   // Image upload and compress to Base64
@@ -171,7 +204,7 @@ export default function App() {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('Por favor selecciona un archivo de imagen válido');
+      showToast('Por favor selecciona un archivo de imagen válido', 'warning');
       return;
     }
 
@@ -357,13 +390,13 @@ export default function App() {
     const existing = cart.find(item => item.product_id === product.id);
     if (existing) {
       if (existing.quantity >= product.stock_actual) {
-        alert('No hay más stock disponible para este producto');
+        showToast('No hay más stock disponible para este producto', 'warning');
         return;
       }
       setCart(cart.map(item => item.product_id === product.id ? { ...item, quantity: item.quantity + 1 } : item));
     } else {
       if (product.stock_actual <= 0) {
-        alert('Producto sin stock disponible');
+        showToast('Producto sin stock disponible', 'warning');
         return;
       }
       setCart([...cart, { 
@@ -462,8 +495,9 @@ export default function App() {
       setImagePreview('');
       loadProducts();
       if (isAdmin) loadDashboard();
+      showToast('¡Producto registrado con éxito!', 'success');
     } catch (err) {
-      alert(err.response?.data?.detail || 'Error al crear producto');
+      showToast(err.response?.data?.detail || 'Error al crear producto', 'error');
     }
   };
 
@@ -480,13 +514,12 @@ export default function App() {
         }],
         observacion: 'Entrada rápida de inventario'
       });
-      setPurchaseMsg('¡Stock incrementado con éxito!');
+      showToast('¡Stock incrementado con éxito!', 'success');
       setPurchaseProduct(null);
       loadProducts();
       if (isAdmin) loadDashboard();
-      setTimeout(() => setPurchaseMsg(''), 3000);
     } catch (err) {
-      alert(err.response?.data?.detail || 'Error en compra');
+      showToast(err.response?.data?.detail || 'Error en compra', 'error');
     }
   };
 
@@ -510,7 +543,7 @@ export default function App() {
   const handleEditImageChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { alert('Selecciona una imagen válida'); return; }
+    if (!file.type.startsWith('image/')) { showToast('Selecciona una imagen válida', 'warning'); return; }
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
@@ -540,7 +573,7 @@ export default function App() {
         nombre: editingProduct.nombre,
         descripcion: editingProduct.descripcion,
         imagen_url: editingProduct.imagen_url || null,
-        precio_compra: parseFloat(editingProduct.precio_compra),
+        precio_compra: parseFloat(editingProduct.precio_compra || 0),
         precio_venta: parseFloat(editingProduct.precio_venta),
         stock_actual: parseInt(editingProduct.stock_actual),
         stock_minimo: parseInt(editingProduct.stock_minimo),
@@ -549,8 +582,9 @@ export default function App() {
       setEditImagePreview('');
       loadProducts();
       if (isAdmin) loadDashboard();
+      showToast('Cambios guardados con éxito', 'success');
     } catch (err) {
-      alert(err.response?.data?.detail || 'Error al guardar cambios');
+      showToast(err.response?.data?.detail || 'Error al guardar cambios', 'error');
     }
   };
 
@@ -561,8 +595,9 @@ export default function App() {
       setDeleteConfirm(null);
       loadProducts();
       if (isAdmin) loadDashboard();
+      showToast('Producto desactivado del inventario', 'info');
     } catch (err) {
-      alert(err.response?.data?.detail || 'Error al eliminar producto');
+      showToast(err.response?.data?.detail || 'Error al eliminar producto', 'error');
     }
   };
 
@@ -1463,6 +1498,34 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Toast Notification Flotante Elegante */}
+      {toast && (
+        <div className="fixed top-5 right-5 z-[100] max-w-sm w-full animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className={`p-4 rounded-2xl shadow-2xl border flex items-start gap-3 backdrop-blur-md ${
+            toast.type === 'success' ? 'bg-emerald-900/90 border-emerald-500/50 text-white shadow-emerald-950/30' :
+            toast.type === 'error'   ? 'bg-rose-900/90 border-rose-500/50 text-white shadow-rose-950/30' :
+            toast.type === 'warning' ? 'bg-amber-900/90 border-amber-500/50 text-white shadow-amber-950/30' :
+                                       'bg-slate-900/90 border-slate-700/50 text-white shadow-slate-950/30'
+          }`}>
+            <div className="mt-0.5 flex-shrink-0">
+              {toast.type === 'success' && <CheckCircle size={20} className="text-emerald-400" />}
+              {toast.type === 'error' && <AlertTriangle size={20} className="text-rose-400" />}
+              {toast.type === 'warning' && <AlertTriangle size={20} className="text-amber-400" />}
+              {toast.type === 'info' && <Boxes size={20} className="text-indigo-400" />}
+            </div>
+            <div className="flex-1 text-sm font-medium leading-snug">
+              {toast.message}
+            </div>
+            <button
+              onClick={() => setToast(null)}
+              className="text-white/60 hover:text-white transition p-0.5 -mr-1"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: CREAR PRODUCTO (CON SUBIDA DE FOTO) */}
       {showProductModal && (
