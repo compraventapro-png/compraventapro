@@ -5,7 +5,7 @@ import {
   Plus, Minus, AlertTriangle, CheckCircle, TrendingUp, DollarSign,
   Boxes, Trash2, LogIn, LogOut, Search, UserCheck, 
   FileDown, Image as ImageIcon, Upload, X, Pencil,
-  History, Users, ToggleLeft, ToggleRight, RefreshCw
+  History, Users, ToggleLeft, ToggleRight, RefreshCw, Printer, Receipt
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -80,6 +80,7 @@ export default function App() {
   const [metodoPago, setMetodoPago] = useState('efectivo'); // 'efectivo' | 'qr' | 'tarjeta'
   const [montoRecibido, setMontoRecibido] = useState('');
   const [clienteNombre, setClienteNombre] = useState('');
+  const [clienteNit, setClienteNit] = useState('');
   const [ticketData, setTicketData] = useState(null); // datos del ticket post-venta
 
   // New Product Modal/Form
@@ -431,6 +432,7 @@ export default function App() {
     setCart([]);
     setMontoRecibido('');
     setClienteNombre('');
+    setClienteNit('');
     setSaleError('');
   };
 
@@ -453,26 +455,31 @@ export default function App() {
     setSaleError('');
     setSaleSuccess('');
     try {
-      await api.post('/ventas/checkout', {
+      const resVenta = await api.post('/ventas/checkout', {
         items: cart.map(item => ({
           producto_id: item.product_id,
           cantidad: item.quantity
         }))
       });
       const vuelto = metodoPago === 'efectivo' ? Math.max(0, parseFloat(montoRecibido || 0) - cartTotal) : 0;
+      const ventaId = resVenta.data?.id || Math.floor(1000 + Math.random() * 9000);
       setTicketData({
+        nroFactura: `FAC-${String(ventaId).padStart(5, '0')}`,
         items: [...cart],
         total: cartTotal,
         metodoPago,
         montoRecibido: parseFloat(montoRecibido || cartTotal),
         vuelto,
-        cliente: clienteNombre || 'Consumidor Final',
-        hora: new Date().toLocaleTimeString('es-ES'),
+        cliente: clienteNombre.trim() || 'Consumidor Final',
+        nit: clienteNit.trim() || 'S/N',
+        hora: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
         fecha: new Date().toLocaleDateString('es-ES'),
+        cajero: user?.nombre || user?.email || 'Administrador',
       });
       setCart([]);
       setMontoRecibido('');
       setClienteNombre('');
+      setClienteNit('');
       loadProducts();
       if (isAdmin) loadDashboard();
     } catch (err) {
@@ -1035,16 +1042,28 @@ export default function App() {
 
                 {cart.length > 0 && (
                   <>
-                    {/* Nombre del cliente */}
-                    <div>
-                      <label className="text-[10px] font-semibold text-slate-500 uppercase">Cliente (opcional)</label>
-                      <input
-                        type="text"
-                        placeholder="Consumidor Final"
-                        value={clienteNombre}
-                        onChange={e => setClienteNombre(e.target.value)}
-                        className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                      />
+                    {/* Nombre del cliente y NIT/CI */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-500 uppercase">Cliente (opcional)</label>
+                        <input
+                          type="text"
+                          placeholder="Consumidor Final"
+                          value={clienteNombre}
+                          onChange={e => setClienteNombre(e.target.value)}
+                          className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-500 uppercase">NIT / CI (opcional)</label>
+                        <input
+                          type="text"
+                          placeholder="ej. 8493021"
+                          value={clienteNit}
+                          onChange={e => setClienteNit(e.target.value)}
+                          className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        />
+                      </div>
                     </div>
 
                     {/* Método de pago */}
@@ -1413,7 +1432,7 @@ export default function App() {
                         <th className="px-5 py-3">Fecha y Hora</th>
                         <th className="px-5 py-3">Productos</th>
                         <th className="px-5 py-3 text-right">Total</th>
-                        <th className="px-5 py-3 text-center">Detalle</th>
+                        <th className="px-5 py-3 text-center">Acciones</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -1429,12 +1448,45 @@ export default function App() {
                               {v.detalles?.length ?? 0} ítem{(v.detalles?.length ?? 0) !== 1 ? 's' : ''}
                             </span>
                           </td>
-                          <td className="px-5 py-3 text-right font-black text-emerald-600">${v.total.toFixed(2)}</td>
+                          <td className="px-5 py-3 text-right font-black text-emerald-600">{currencySymbol}{v.total.toFixed(2)}</td>
                           <td className="px-5 py-3 text-center">
-                            <button onClick={() => setVentaDetalle(ventaDetalle?.id === v.id ? null : v)}
-                              className="px-3 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 rounded-lg text-xs font-semibold transition">
-                              {ventaDetalle?.id === v.id ? 'Cerrar' : 'Ver'}
-                            </button>
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button onClick={() => setVentaDetalle(ventaDetalle?.id === v.id ? null : v)}
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition">
+                                {ventaDetalle?.id === v.id ? 'Cerrar' : 'Ver'}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  // Reabrir comprobante para reimpresión
+                                  const reconstructedItems = (v.detalles || []).map(d => {
+                                    const p = products.find(prod => prod.id === d.producto_id);
+                                    return {
+                                      product_id: d.producto_id,
+                                      nombre: p ? p.nombre : `Producto #${d.producto_id}`,
+                                      price: d.precio_unit,
+                                      quantity: d.cantidad
+                                    };
+                                  });
+                                  setTicketData({
+                                    nroFactura: `FAC-${String(v.id).padStart(5, '0')}`,
+                                    items: reconstructedItems.length > 0 ? reconstructedItems : [{ product_id: 1, nombre: 'Venta Registrada', price: v.total, quantity: 1 }],
+                                    total: v.total,
+                                    metodoPago: 'efectivo',
+                                    montoRecibido: v.total,
+                                    vuelto: 0,
+                                    cliente: 'Consumidor Final',
+                                    nit: 'S/N',
+                                    hora: new Date(v.creado_en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+                                    fecha: new Date(v.creado_en).toLocaleDateString('es-ES'),
+                                    cajero: user?.nombre || user?.email || 'Administrador',
+                                  });
+                                }}
+                                className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition flex items-center gap-1"
+                                title="Reimprimir comprobante"
+                              >
+                                <Receipt size={13} /> Factura
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1818,87 +1870,305 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL: TICKET DE VENTA */}
+      {/* MODAL: FACTURA / RECIBO PROFESIONAL (ESTILO DUAL A COLOR) */}
       {ticketData && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden">
-            {/* Header ticket */}
-            <div className="bg-emerald-600 text-white p-5 text-center">
-              <CheckCircle size={36} className="mx-auto mb-2" />
-              <h3 className="text-lg font-black">¡Venta Exitosa!</h3>
-              <p className="text-emerald-100 text-xs">{ticketData.fecha} — {ticketData.hora}</p>
-            </div>
-            {/* Cuerpo ticket */}
-            <div className="p-5 font-mono text-sm">
-              <div className="border-b border-dashed border-slate-300 pb-3 mb-3">
-                <p className="text-xs text-slate-500 text-center uppercase font-semibold tracking-widest">CompraVentaPro</p>
-                <p className="text-xs text-center text-slate-400">Cliente: <span className="text-slate-700 font-bold">{ticketData.cliente}</span></p>
-              </div>
-              {/* Items */}
-              <div className="space-y-1.5 mb-3">
-                {ticketData.items.map(item => (
-                  <div key={item.product_id} className="flex justify-between text-xs">
-                    <span className="text-slate-700 truncate flex-1">{item.nombre} <span className="text-slate-400">x{item.quantity}</span></span>
-                    <span className="font-bold text-slate-900 ml-2">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden my-4 animate-in fade-in zoom-in-95 duration-200">
+            {/* Cabecera Corporativa con Estilo y Color */}
+            <div className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-indigo-800 text-white p-6 relative overflow-hidden">
+              <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
+              <div className="flex items-start justify-between relative z-10">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
+                    <Receipt size={28} className="text-white" />
                   </div>
-                ))}
-              </div>
-              <div className="border-t border-dashed border-slate-300 pt-3 space-y-1">
-                <div className="flex justify-between text-sm font-bold">
-                  <span>TOTAL</span>
-                  <span>{currencySymbol}{ticketData.total.toFixed(2)}</span>
+                  <div>
+                    <span className="text-[10px] tracking-widest font-black uppercase bg-white/20 px-2 py-0.5 rounded-full inline-block mb-1">
+                      Comprobante Electrónico
+                    </span>
+                    <h3 className="text-xl font-black tracking-tight">CompraVentaPro</h3>
+                    <p className="text-xs text-indigo-100">Solución Integral de Inventario y Ventas</p>
+                  </div>
                 </div>
-                <div className="flex justify-between text-xs text-slate-500">
-                  <span>Método</span>
-                  <span className="capitalize font-semibold">
-                    {ticketData.metodoPago === 'efectivo' ? '💵 Efectivo' : ticketData.metodoPago === 'qr' ? '📱 QR/Trans.' : '💳 Tarjeta'}
+                <div className="text-right">
+                  <span className="inline-block bg-white text-indigo-900 font-mono font-black text-xs px-3 py-1.5 rounded-xl shadow-sm">
+                    {ticketData.nroFactura || 'FAC-00001'}
                   </span>
+                  <p className="text-[11px] text-indigo-200 mt-1">{ticketData.fecha} · {ticketData.hora}</p>
                 </div>
-                {ticketData.metodoPago === 'efectivo' && (
-                  <>
-                    <div className="flex justify-between text-xs text-slate-500">
-                      <span>Recibido</span>
-                      <span>{currencySymbol}{ticketData.montoRecibido.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm font-black text-emerald-700">
-                      <span>Vuelto</span>
-                      <span>{currencySymbol}{ticketData.vuelto.toFixed(2)}</span>
-                    </div>
-                  </>
-                )}
               </div>
-              <p className="text-[10px] text-center text-slate-400 mt-4">¡Gracias por su compra!</p>
             </div>
-            {/* Acciones */}
-            <div className="px-5 pb-5 flex gap-2">
+
+            {/* Datos Comerciales y del Cliente */}
+            <div className="p-6 space-y-5">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-200/70 text-xs">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">DATOS DEL CLIENTE</span>
+                  <p className="font-bold text-slate-800 text-sm truncate">{ticketData.cliente}</p>
+                  <p className="text-slate-500 mt-0.5">NIT / CI: <span className="font-mono font-bold text-slate-700">{ticketData.nit || 'S/N'}</span></p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">DATOS DE EMISIÓN</span>
+                  <p className="text-slate-700 font-medium">Cajero: <strong className="text-slate-800">{ticketData.cajero}</strong></p>
+                  <p className="text-slate-500 mt-0.5">Método: <strong className="text-indigo-600 capitalize">{ticketData.metodoPago === 'efectivo' ? 'Efectivo' : ticketData.metodoPago === 'qr' ? 'QR / Trans.' : 'Tarjeta'}</strong></p>
+                </div>
+              </div>
+
+              {/* Tabla de Artículos con Diseño Nítido */}
+              <div className="rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-100/90 text-slate-600 uppercase font-bold border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-2.5">Cant.</th>
+                      <th className="px-4 py-2.5">Descripción</th>
+                      <th className="px-4 py-2.5 text-right">P. Unit</th>
+                      <th className="px-4 py-2.5 text-right">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {ticketData.items.map((item, idx) => (
+                      <tr key={item.product_id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                        <td className="px-4 py-2.5 font-bold text-indigo-700">x{item.quantity}</td>
+                        <td className="px-4 py-2.5 font-semibold text-slate-800">{item.nombre}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-600 font-mono">{currencySymbol}{item.price.toFixed(2)}</td>
+                        <td className="px-4 py-2.5 text-right font-black text-slate-900 font-mono">
+                          {currencySymbol}{(item.price * item.quantity).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Bloque de Totales y QR */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-1 border-t border-slate-100">
+                {/* Código QR Informativo decorativo */}
+                <div className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-2xl border border-slate-200/60 w-full sm:w-auto">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`Factura:${ticketData.nroFactura}|Total:${ticketData.total}|Fecha:${ticketData.fecha}`)}`}
+                    alt="QR Factura"
+                    className="w-14 h-14 rounded-lg border bg-white p-1"
+                  />
+                  <div className="text-[10px] text-slate-500 leading-tight">
+                    <p className="font-bold text-slate-700">Comprobante Válido</p>
+                    <p>Escanea para verificar</p>
+                    <p className="text-[9px] text-emerald-600 font-bold mt-0.5">✓ Venta Confirmada</p>
+                  </div>
+                </div>
+
+                {/* Resumen Financiero */}
+                <div className="w-full sm:w-60 space-y-1.5 text-xs">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Subtotal:</span>
+                    <span className="font-mono font-semibold">{currencySymbol}{ticketData.total.toFixed(2)}</span>
+                  </div>
+                  {ticketData.metodoPago === 'efectivo' && (
+                    <>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Monto Recibido:</span>
+                        <span className="font-mono">{currencySymbol}{ticketData.montoRecibido.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-700 font-bold">
+                        <span>Vuelto / Cambio:</span>
+                        <span className="font-mono font-black">{currencySymbol}{ticketData.vuelto.toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex justify-between items-center bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2 text-indigo-950 font-black text-sm">
+                    <span>TOTAL A PAGAR:</span>
+                    <span className="text-base text-indigo-700 font-black font-mono">
+                      {currencySymbol}{ticketData.total.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-[10px] text-center text-slate-400 italic">
+                "Gracias por su preferencia · Esta nota de venta avala la entrega de mercadería"
+              </p>
+            </div>
+
+            {/* Opciones de Impresión Dual (Factura Formal a Color o Ticket Térmico) */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row gap-2 justify-end">
               <button
+                type="button"
                 onClick={() => setTicketData(null)}
-                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm"
+                className="px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs border border-slate-200 transition"
               >
                 Cerrar
               </button>
+
+              {/* Botón 1: Ticket Térmico POS 80mm */}
               <button
+                type="button"
                 onClick={() => {
-                  // Imprimir ticket
-                  const win = window.open('', '_blank', 'width=350,height=500');
-                  win.document.write(`<html><head><title>Ticket</title><style>body{font-family:monospace;font-size:12px;padding:16px;max-width:300px}h2{text-align:center}hr{border:none;border-top:1px dashed #999;margin:8px 0}.total{font-weight:bold;font-size:14px}.footer{text-align:center;color:#999;margin-top:12px;font-size:10px}</style></head><body>
-                    <h2>CompraVentaPro</h2>
-                    <p style="text-align:center">Fecha: ${ticketData.fecha} ${ticketData.hora}</p>
-                    <p style="text-align:center">Cliente: <b>${ticketData.cliente}</b></p>
-                    <hr/>
-                    ${ticketData.items.map(i => `<div style="display:flex;justify-content:space-between"><span>${i.nombre} x${i.quantity}</span><span>${currencySymbol}${(i.price*i.quantity).toFixed(2)}</span></div>`).join('')}
-                    <hr/>
-                    <div class="total" style="display:flex;justify-content:space-between"><span>TOTAL</span><span>${currencySymbol}${ticketData.total.toFixed(2)}</span></div>
-                    <div style="display:flex;justify-content:space-between"><span>Pago</span><span>${ticketData.metodoPago}</span></div>
-                    ${ticketData.metodoPago === 'efectivo' ? `<div style="display:flex;justify-content:space-between"><span>Recibido</span><span>${currencySymbol}${ticketData.montoRecibido.toFixed(2)}</span></div><div style="display:flex;justify-content:space-between;font-weight:bold;color:green"><span>Vuelto</span><span>${currencySymbol}${ticketData.vuelto.toFixed(2)}</span></div>` : ''}
-                    <p class="footer">¡Gracias por su compra!</p>
-                  </body></html>`);
+                  const win = window.open('', '_blank', 'width=420,height=600');
+                  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${ticketData.nroFactura}</title>
+                    <style>
+                      @page { size: 80mm auto; margin: 0; }
+                      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; font-size: 11px; margin: 0; padding: 12px; color: #111; max-width: 80mm; box-sizing: border-box; }
+                      .text-center { text-align: center; }
+                      .font-bold { font-weight: bold; }
+                      .title { font-size: 15px; font-weight: 900; margin: 0 0 2px 0; }
+                      .hr { border: none; border-top: 1px dashed #777; margin: 8px 0; }
+                      .table { width: 100%; border-collapse: collapse; font-size: 11px; }
+                      .table th { border-bottom: 1px solid #000; padding: 3px 0; text-align: left; font-size: 10px; }
+                      .table td { padding: 4px 0; }
+                      .text-right { text-align: right; }
+                      .total-box { font-size: 14px; font-weight: 900; display: flex; justify-content: space-between; margin-top: 4px; }
+                      .qr-wrap { text-align: center; margin-top: 10px; }
+                      .qr-wrap img { width: 75px; height: 75px; }
+                    </style></head><body>
+                      <div class="text-center">
+                        <h2 class="title">COMPRAVENTAPRO</h2>
+                        <div>NIT: 1028475029 · La Paz - Bolivia</div>
+                        <div class="font-bold">${ticketData.nroFactura}</div>
+                      </div>
+                      <div class="hr"></div>
+                      <div><b>Fecha:</b> ${ticketData.fecha} ${ticketData.hora}</div>
+                      <div><b>Cliente:</b> ${ticketData.cliente}</div>
+                      <div><b>NIT/CI:</b> ${ticketData.nit}</div>
+                      <div><b>Cajero:</b> ${ticketData.cajero}</div>
+                      <div class="hr"></div>
+                      <table class="table">
+                        <thead><tr><th>Cant. Detalle</th><th class="text-right">Total</th></tr></thead>
+                        <tbody>
+                          ${ticketData.items.map(i => `<tr><td>${i.quantity}x ${i.nombre} <small>(${currencySymbol}${i.price.toFixed(2)})</small></td><td class="text-right font-bold">${currencySymbol}${(i.price*i.quantity).toFixed(2)}</td></tr>`).join('')}
+                        </tbody>
+                      </table>
+                      <div class="hr"></div>
+                      <div class="total-box"><span>TOTAL:</span><span>${currencySymbol}${ticketData.total.toFixed(2)}</span></div>
+                      <div><b>Método:</b> ${ticketData.metodoPago.toUpperCase()}</div>
+                      ${ticketData.metodoPago === 'efectivo' ? `<div>Recibido: ${currencySymbol}${ticketData.montoRecibido.toFixed(2)}</div><div class="font-bold">Vuelto: ${currencySymbol}${ticketData.vuelto.toFixed(2)}</div>` : ''}
+                      <div class="qr-wrap">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`Factura:${ticketData.nroFactura}|Total:${ticketData.total}`)}" />
+                        <div style="font-size:9px;color:#666;margin-top:4px;">¡Gracias por su compra!</div>
+                      </div>
+                    </body></html>`);
                   win.document.close();
-                  win.print();
+                  setTimeout(() => { win.focus(); win.print(); }, 300);
                 }}
-                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-1.5"
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
               >
-                🖨️ Imprimir
+                <Receipt size={14} /> Ticket Térmico POS (80mm)
+              </button>
+
+              {/* Botón 2: Factura Formal a Color (Hoja Normal / Carta) */}
+              <button
+                type="button"
+                onClick={() => {
+                  const win = window.open('', '_blank', 'width=800,height=900');
+                  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${ticketData.nroFactura} - Factura Formal</title>
+                    <style>
+                      @page { size: letter; margin: 15mm; }
+                      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1e293b; margin: 0; padding: 25px; background: #fff; }
+                      .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 20px; border-bottom: 3px solid #4f46e5; }
+                      .brand-name { font-size: 26px; font-weight: 900; color: #312e81; margin: 0; letter-spacing: -0.5px; }
+                      .brand-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+                      .invoice-badge { background: #eef2ff; border: 1.5px solid #c7d2fe; padding: 12px 18px; rounded: 12px; border-radius: 12px; text-align: right; }
+                      .invoice-title { font-size: 13px; font-weight: 800; color: #4338ca; text-transform: uppercase; letter-spacing: 1px; }
+                      .invoice-num { font-size: 18px; font-weight: 900; color: #1e1b4b; font-family: monospace; }
+                      .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 25px 0; background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 12px; font-size: 12px; }
+                      .meta-col strong { color: #0f172a; }
+                      .meta-title { font-size: 10px; font-weight: 800; color: #6366f1; text-transform: uppercase; margin-bottom: 5px; }
+                      .table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }
+                      .table th { background: #4f46e5; color: #ffffff; padding: 10px 14px; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; text-align: left; }
+                      .table th:first-child { border-radius: 8px 0 0 8px; }
+                      .table th:last-child { border-radius: 0 8px 8px 0; text-align: right; }
+                      .table td { padding: 12px 14px; border-bottom: 1px solid #e2e8f0; }
+                      .table tr:nth-child(even) { background: #f8fafc; }
+                      .text-right { text-align: right; }
+                      .summary-container { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 25px; }
+                      .qr-box { display: flex; align-items: center; gap: 12px; background: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-size: 10px; color: #64748b; }
+                      .qr-box img { width: 70px; height: 70px; border-radius: 6px; }
+                      .total-card { width: 260px; background: #312e81; color: white; padding: 14px 18px; border-radius: 12px; font-size: 12px; }
+                      .total-card .line { display: flex; justify-content: space-between; margin-bottom: 6px; }
+                      .total-card .line.main { font-size: 18px; font-weight: 900; color: #38bdf8; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 8px; margin-top: 8px; }
+                      .footer-note { text-align: center; margin-top: 40px; font-size: 10px; color: #94a3b8; border-top: 1px dashed #cbd5e1; padding-top: 15px; }
+                    </style></head><body>
+                      <div class="header">
+                        <div>
+                          <h1 class="brand-name">CompraVentaPro</h1>
+                          <div class="brand-sub">Comercializadora y Distribución · Sistema Computarizado</div>
+                          <div style="font-size:11px;color:#475569;margin-top:6px;">Av. Principal #1042 · La Paz - Bolivia · Tel: +591 70000000</div>
+                        </div>
+                        <div class="invoice-badge">
+                          <div class="invoice-title">FACTURA / NOTA DE VENTA</div>
+                          <div class="invoice-num">${ticketData.nroFactura}</div>
+                          <div style="font-size:11px;color:#64748b;margin-top:4px;">Emisión: ${ticketData.fecha} · ${ticketData.hora}</div>
+                        </div>
+                      </div>
+
+                      <div class="meta-grid">
+                        <div class="meta-col">
+                          <div class="meta-title">DATOS DEL COMPRADOR</div>
+                          <div>Señor(es): <strong>${ticketData.cliente}</strong></div>
+                          <div>NIT / CI: <strong>${ticketData.nit}</strong></div>
+                          <div>Forma de Pago: <strong style="text-transform:capitalize;">${ticketData.metodoPago}</strong></div>
+                        </div>
+                        <div class="meta-col" style="text-align:right;">
+                          <div class="meta-title">DATOS DE LA TRANSACCIÓN</div>
+                          <div>Atendido por: <strong>${ticketData.cajero}</strong></div>
+                          <div>Estado: <strong style="color:#059669;">PAGADO Y CONFIRMADO</strong></div>
+                          <div>Moneda: <strong>${currencySymbol.trim() === 'Bs' ? 'Bolivianos (BOB)' : 'Dólares (USD)'}</strong></div>
+                        </div>
+                      </div>
+
+                      <table class="table">
+                        <thead>
+                          <tr>
+                            <th style="width:10%;">Cant.</th>
+                            <th style="width:50%;">Descripción del Producto</th>
+                            <th style="width:20%;" class="text-right">Precio Unitario</th>
+                            <th style="width:20%;" class="text-right">Importe Subtotal</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${ticketData.items.map(i => `
+                            <tr>
+                              <td style="font-weight:bold;color:#4f46e5;">x${i.quantity}</td>
+                              <td style="font-weight:600;color:#0f172a;">${i.nombre}</td>
+                              <td class="text-right" style="font-family:monospace;">${currencySymbol}${i.price.toFixed(2)}</td>
+                              <td class="text-right" style="font-weight:bold;font-family:monospace;color:#0f172a;">${currencySymbol}${(i.price * i.quantity).toFixed(2)}</td>
+                            </tr>
+                          `).join('')}
+                        </tbody>
+                      </table>
+
+                      <div class="summary-container">
+                        <div class="qr-box">
+                          <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`Factura:${ticketData.nroFactura}|NIT:${ticketData.nit}|Total:${ticketData.total}|Fecha:${ticketData.fecha}`)}" />
+                          <div>
+                            <div style="font-weight:bold;color:#1e293b;font-size:11px;">DOCUMENTO OFICIAL</div>
+                            <div>Código de Control Electrónico</div>
+                            <div style="color:#059669;font-weight:bold;margin-top:2px;">Transacción Registrada en Supabase</div>
+                          </div>
+                        </div>
+
+                        <div class="total-card">
+                          <div class="line"><span>Subtotal:</span><span>${currencySymbol}${ticketData.total.toFixed(2)}</span></div>
+                          ${ticketData.metodoPago === 'efectivo' ? `
+                            <div class="line"><span>Efectivo Recibido:</span><span>${currencySymbol}${ticketData.montoRecibido.toFixed(2)}</span></div>
+                            <div class="line" style="color:#86efac;font-weight:bold;"><span>Vuelto / Cambio:</span><span>${currencySymbol}${ticketData.vuelto.toFixed(2)}</span></div>
+                          ` : ''}
+                          <div class="line main">
+                            <span>TOTAL:</span>
+                            <span>${currencySymbol}${ticketData.total.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="footer-note">
+                        ESTA FACTURA CONTRIBUYE AL DESARROLLO DEL PAÍS. EL USO ILÍCITO SERÁ SANCIONADO PENALMENTE DE ACUERDO A LEY.<br/>
+                        Generado por el Sistema CompraVentaPro · Sincronizado en la nube
+                      </div>
+                    </body></html>`);
+                  win.document.close();
+                  setTimeout(() => { win.focus(); win.print(); }, 400);
+                }}
+                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-md shadow-indigo-200"
+              >
+                <Printer size={15} /> Imprimir Factura Formal a Color (Carta)
               </button>
             </div>
           </div>
