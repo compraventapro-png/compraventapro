@@ -115,10 +115,12 @@ class ProductoCreate(ProductoBase):
 
 class ProductoUpdate(BaseModel):
     nombre:        Optional[str]   = None
+    sku:           Optional[str]   = None
     descripcion:   Optional[str]   = None
     imagen_url:    Optional[str]   = None
     precio_compra: Optional[float] = None
     precio_venta:  Optional[float] = None
+    stock_actual:  Optional[int]   = None
     stock_minimo:  Optional[int]   = None
     activo:        Optional[bool]  = None
 

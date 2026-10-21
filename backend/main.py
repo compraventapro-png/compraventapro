@@ -10,7 +10,7 @@ import models
 from database import engine
 
 # Importar routers
-from routers import auth, productos, proveedores, clientes, compras, ventas, dashboard
+from routers import auth, productos, proveedores, clientes, compras, ventas, dashboard, usuarios
 
 load_dotenv()
 
@@ -43,6 +43,7 @@ app.include_router(clientes.router)
 app.include_router(compras.router)
 app.include_router(ventas.router)
 app.include_router(dashboard.router)
+app.include_router(usuarios.router)
 
 
 # ─── Health check ────────────────────────────────────────────

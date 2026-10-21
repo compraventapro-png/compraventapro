@@ -4,13 +4,22 @@ import {
   Package, ShoppingCart, ShoppingBag, LayoutDashboard, 
   Plus, AlertTriangle, CheckCircle, TrendingUp, DollarSign,
   Boxes, Trash2, LogIn, LogOut, Search, UserCheck, 
-  FileDown, Image as ImageIcon, Upload, X, Pencil
+  FileDown, Image as ImageIcon, Upload, X, Pencil,
+  History, Users, ToggleLeft, ToggleRight, RefreshCw
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import {
+  Chart as ChartJS,
+  CategoryScale, LinearScale, BarElement,
+  Title, Tooltip, Legend
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('pos'); // 'pos', 'inventory', 'dashboard'
+  const [activeTab, setActiveTab] = useState('pos'); // 'pos', 'inventory', 'dashboard', 'ventas', 'usuarios'
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || 'null'));
 
@@ -28,6 +37,18 @@ export default function App() {
   const [inventorySearch, setInventorySearch] = useState('');
   const [inventoryFilter, setInventoryFilter] = useState('all'); // 'all', 'low_stock'
   const [dashboardData, setDashboardData] = useState(null);
+  const [ventasSemana, setVentasSemana] = useState([]);
+
+  // Historial de ventas
+  const [ventas, setVentas] = useState([]);
+  const [loadingVentas, setLoadingVentas] = useState(false);
+  const [ventaDetalle, setVentaDetalle] = useState(null);
+
+  // Gestión de usuarios
+  const [usuarios, setUsuarios] = useState([]);
+  const [loadingUsuarios, setLoadingUsuarios] = useState(false);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [newUser, setNewUser] = useState({ nombre: '', email: '', password: '', rol: 'vendedor' });
 
   // Cart for POS (Sale)
   const [cart, setCart] = useState([]);
@@ -65,6 +86,7 @@ export default function App() {
       loadProducts();
       if (isAdmin) {
         loadDashboard();
+        loadVentasSemana();
       } else {
         setActiveTab('pos');
       }
@@ -90,6 +112,48 @@ export default function App() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const loadVentasSemana = async () => {
+    try {
+      const res = await api.get('/dashboard/ventas-semana');
+      setVentasSemana(res.data);
+    } catch (err) { console.error(err); }
+  };
+
+  const loadVentas = async () => {
+    try {
+      setLoadingVentas(true);
+      const res = await api.get('/ventas/');
+      setVentas(res.data);
+    } catch (err) { console.error(err); }
+    finally { setLoadingVentas(false); }
+  };
+
+  const loadUsuarios = async () => {
+    try {
+      setLoadingUsuarios(true);
+      const res = await api.get('/usuarios/');
+      setUsuarios(res.data);
+    } catch (err) { console.error(err); }
+    finally { setLoadingUsuarios(false); }
+  };
+
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/usuarios/', newUser);
+      setShowUserModal(false);
+      setNewUser({ nombre: '', email: '', password: '', rol: 'vendedor' });
+      loadUsuarios();
+    } catch (err) { alert(err.response?.data?.detail || 'Error al crear usuario'); }
+  };
+
+  const toggleUsuario = async (id) => {
+    try {
+      await api.patch(`/usuarios/${id}/toggle`);
+      loadUsuarios();
+    } catch (err) { alert(err.response?.data?.detail || 'Error'); }
   };
 
   // Image upload and compress to Base64
@@ -597,11 +661,29 @@ export default function App() {
           </button>
           {isAdmin && (
             <button 
-              onClick={() => setActiveTab('dashboard')}
+              onClick={() => { setActiveTab('dashboard'); loadVentasSemana(); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition text-sm ${activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}
             >
               <LayoutDashboard size={18} />
               Dashboard & KPIs
+            </button>
+          )}
+          {isAdmin && (
+            <button 
+              onClick={() => { setActiveTab('ventas'); loadVentas(); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition text-sm ${activeTab === 'ventas' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}
+            >
+              <History size={18} />
+              Historial de Ventas
+            </button>
+          )}
+          {isAdmin && (
+            <button 
+              onClick={() => { setActiveTab('usuarios'); loadUsuarios(); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition text-sm ${activeTab === 'usuarios' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}
+            >
+              <Users size={18} />
+              Gestión de Usuarios
             </button>
           )}
         </nav>
@@ -1066,64 +1148,263 @@ export default function App() {
         {/* TAB: DASHBOARD */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-slate-800">Métricas Clave del Negocio (Hoy)</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase">Productos Activos</p>
-                  <p className="text-2xl font-black text-slate-800 mt-1">{dashboardData?.total_productos ?? products.length}</p>
-                </div>
-                <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-                  <Package size={24} />
-                </div>
-              </div>
-
-              <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase">Alertas Stock Mínimo</p>
-                  <p className="text-2xl font-black text-amber-600 mt-1">{dashboardData?.productos_stock_bajo ?? 0}</p>
-                </div>
-                <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
-                  <AlertTriangle size={24} />
-                </div>
-              </div>
-
-              <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase">Ventas Totales Hoy</p>
-                  <p className="text-2xl font-black text-emerald-600 mt-1">${(dashboardData?.total_ventas_hoy ?? 0).toFixed(2)}</p>
-                </div>
-                <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-                  <TrendingUp size={24} />
-                </div>
-              </div>
-
-              <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase">Transacciones Hoy</p>
-                  <p className="text-2xl font-black text-indigo-600 mt-1">{dashboardData?.num_ventas_hoy ?? 0}</p>
-                </div>
-                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-                  <DollarSign size={24} />
-                </div>
-              </div>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-slate-800">Métricas Clave del Negocio</h2>
+              <button onClick={() => { loadDashboard(); loadVentasSemana(); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 transition">
+                <RefreshCw size={13} /> Actualizar
+              </button>
             </div>
 
-            <div className="p-6 bg-indigo-900 text-white rounded-2xl shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
-              <div>
-                <h3 className="text-lg font-bold">Supabase PostgreSQL Conectado</h3>
-                <p className="text-sm text-indigo-200 mt-1">
-                  Todas las operaciones de inventario, stock atómico y compras están sincronizadas en tiempo real en la nube.
-                </p>
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { label: 'Productos Activos',    value: dashboardData?.total_productos ?? products.length, color: 'blue',    Icon: Package },
+                { label: 'Alertas Stock Mínimo', value: dashboardData?.productos_stock_bajo ?? 0,          color: 'amber',   Icon: AlertTriangle },
+                { label: 'Ventas Hoy ($)',        value: `$${(dashboardData?.total_ventas_hoy ?? 0).toFixed(2)}`, color: 'emerald', Icon: TrendingUp },
+                { label: 'Transacciones Hoy',    value: dashboardData?.num_ventas_hoy ?? 0,                color: 'indigo',  Icon: DollarSign },
+              ].map(({ label, value, color, Icon }) => (
+                <div key={label} className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase">{label}</p>
+                    <p className={`text-2xl font-black mt-1 text-${color}-600`}>{value}</p>
+                  </div>
+                  <div className={`p-3 bg-${color}-50 text-${color}-600 rounded-xl`}>
+                    <Icon size={24} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Gráfica de ventas últimos 7 días */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <TrendingUp size={18} className="text-indigo-500" />
+                Ventas — Últimos 7 días
+              </h3>
+              {ventasSemana.length > 0 ? (
+                <Bar
+                  data={{
+                    labels: ventasSemana.map(d => d.fecha),
+                    datasets: [{
+                      label: 'Total ($)',
+                      data: ventasSemana.map(d => d.total),
+                      backgroundColor: 'rgba(99,102,241,0.7)',
+                      borderColor: 'rgba(99,102,241,1)',
+                      borderWidth: 2,
+                      borderRadius: 8,
+                    }]
+                  }}
+                  options={{
+                    responsive: true,
+                    plugins: {
+                      legend: { display: false },
+                      tooltip: { callbacks: { label: ctx => ` $${ctx.raw.toFixed(2)}` } }
+                    },
+                    scales: {
+                      y: { beginAtZero: true, ticks: { callback: v => `$${v}` }, grid: { color: '#f1f5f9' } },
+                      x: { grid: { display: false } }
+                    }
+                  }}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <TrendingUp size={40} className="text-slate-200 mb-2" />
+                  <p className="text-sm">Sin ventas en los últimos 7 días</p>
+                </div>
+              )}
+            </div>
+
+            {/* Resumen adicional */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Compras Hoy</p>
+                <p className="text-2xl font-black text-rose-500">${(dashboardData?.total_compras_hoy ?? 0).toFixed(2)}</p>
+                <p className="text-xs text-slate-400 mt-1">{dashboardData?.num_compras_hoy ?? 0} entradas de mercadería</p>
               </div>
-              <a 
-                href="https://compraventapro.onrender.com/docs" 
-                target="_blank" 
-                rel="noreferrer"
-                className="px-5 py-2.5 bg-white text-indigo-900 rounded-xl font-bold text-sm hover:bg-indigo-50 transition shadow-lg"
-              >
-                Abrir Swagger API ↗
-              </a>
+              <div className="p-5 bg-indigo-900 text-white rounded-2xl shadow-sm flex flex-col justify-between">
+                <h3 className="font-bold">Supabase PostgreSQL</h3>
+                <p className="text-xs text-indigo-300 mt-1">Sincronizado en tiempo real en la nube</p>
+                <a href="https://compraventapro.onrender.com/docs" target="_blank" rel="noreferrer"
+                  className="mt-3 inline-block px-4 py-2 bg-white text-indigo-900 rounded-xl font-bold text-xs hover:bg-indigo-50 transition">
+                  Swagger API ↗
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: HISTORIAL DE VENTAS */}
+        {activeTab === 'ventas' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-slate-800">Historial de Ventas</h2>
+              <button onClick={loadVentas} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 transition">
+                <RefreshCw size={13} /> Actualizar
+              </button>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              {loadingVentas ? (
+                <div className="p-12 text-center text-slate-400">Cargando historial...</div>
+              ) : ventas.length === 0 ? (
+                <div className="p-12 flex flex-col items-center text-slate-400">
+                  <History size={48} className="text-slate-200 mb-3" />
+                  <p className="font-semibold">No hay ventas registradas aún</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 text-slate-500 uppercase text-xs border-b border-slate-200">
+                      <tr>
+                        <th className="px-5 py-3">#</th>
+                        <th className="px-5 py-3">Fecha y Hora</th>
+                        <th className="px-5 py-3">Productos</th>
+                        <th className="px-5 py-3 text-right">Total</th>
+                        <th className="px-5 py-3 text-center">Detalle</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {ventas.map(v => (
+                        <tr key={v.id} className="hover:bg-slate-50 transition">
+                          <td className="px-5 py-3 font-mono font-bold text-slate-500">#{v.id}</td>
+                          <td className="px-5 py-3 text-slate-700">
+                            {new Date(v.creado_en).toLocaleDateString('es-ES')}
+                            <span className="text-slate-400 ml-2 text-xs">{new Date(v.creado_en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
+                          </td>
+                          <td className="px-5 py-3 text-slate-600">
+                            <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full text-xs font-bold">
+                              {v.detalles?.length ?? 0} ítem{(v.detalles?.length ?? 0) !== 1 ? 's' : ''}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-right font-black text-emerald-600">${v.total.toFixed(2)}</td>
+                          <td className="px-5 py-3 text-center">
+                            <button onClick={() => setVentaDetalle(ventaDetalle?.id === v.id ? null : v)}
+                              className="px-3 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 rounded-lg text-xs font-semibold transition">
+                              {ventaDetalle?.id === v.id ? 'Cerrar' : 'Ver'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Panel detalle de venta expandido */}
+            {ventaDetalle && (
+              <div className="bg-white rounded-2xl border border-indigo-200 shadow-sm p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-bold text-slate-800">Detalle Venta #{ventaDetalle.id}</h3>
+                  <button onClick={() => setVentaDetalle(null)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+                </div>
+                <div className="space-y-2">
+                  {ventaDetalle.detalles?.map(d => (
+                    <div key={d.id} className="flex justify-between items-center py-2 border-b border-slate-100 text-sm">
+                      <div className="flex items-center gap-3">
+                        <span className="w-7 h-7 bg-indigo-50 text-indigo-700 rounded-lg flex items-center justify-center text-xs font-bold">{d.cantidad}</span>
+                        <div>
+                          <p className="font-semibold text-slate-800">Producto ID #{d.producto_id}</p>
+                          <p className="text-xs text-slate-400">${d.precio_unit.toFixed(2)} c/u</p>
+                        </div>
+                      </div>
+                      <span className="font-bold text-slate-900">${d.subtotal.toFixed(2)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between pt-2 font-black text-emerald-700">
+                    <span>TOTAL</span>
+                    <span>${ventaDetalle.total.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Resumen total */}
+            {ventas.length > 0 && (
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: 'Total Ventas', value: ventas.length, color: 'indigo' },
+                  { label: 'Ingresos Totales', value: `$${ventas.reduce((a, v) => a + v.total, 0).toFixed(2)}`, color: 'emerald' },
+                  { label: 'Ticket Promedio', value: `$${(ventas.reduce((a, v) => a + v.total, 0) / ventas.length).toFixed(2)}`, color: 'amber' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className={`p-4 bg-${color}-50 border border-${color}-100 rounded-2xl text-center`}>
+                    <p className={`text-xs font-semibold text-${color}-600 uppercase`}>{label}</p>
+                    <p className={`text-xl font-black text-${color}-700 mt-1`}>{value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB: GESTIÓN DE USUARIOS */}
+        {activeTab === 'usuarios' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-slate-800">Gestión de Usuarios</h2>
+              <div className="flex gap-2">
+                <button onClick={loadUsuarios} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 transition">
+                  <RefreshCw size={13} /> Actualizar
+                </button>
+                <button onClick={() => setShowUserModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-md transition">
+                  <Plus size={16} /> Nuevo Usuario
+                </button>
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              {loadingUsuarios ? (
+                <div className="p-12 text-center text-slate-400">Cargando usuarios...</div>
+              ) : (
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50 text-slate-500 uppercase text-xs border-b border-slate-200">
+                    <tr>
+                      <th className="px-5 py-3">Usuario</th>
+                      <th className="px-5 py-3">Email</th>
+                      <th className="px-5 py-3">Rol</th>
+                      <th className="px-5 py-3">Registrado</th>
+                      <th className="px-5 py-3 text-center">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {usuarios.map(u => (
+                      <tr key={u.id} className={`hover:bg-slate-50 transition ${!u.activo ? 'opacity-50' : ''}`}>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center font-bold text-xs uppercase">
+                              {u.nombre?.charAt(0)}
+                            </div>
+                            <span className="font-semibold text-slate-800">{u.nombre}</span>
+                            {u.id === user?.id && <span className="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-bold">TÚ</span>}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3 text-slate-500">{u.email}</td>
+                        <td className="px-5 py-3">
+                          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${u.rol === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                            {u.rol.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-slate-500 text-xs">
+                          {new Date(u.creado_en).toLocaleDateString('es-ES')}
+                        </td>
+                        <td className="px-5 py-3 text-center">
+                          <button
+                            onClick={() => toggleUsuario(u.id)}
+                            disabled={u.id === user?.id}
+                            title={u.id === user?.id ? 'No puedes desactivarte a ti mismo' : (u.activo ? 'Desactivar' : 'Activar')}
+                            className={`transition ${u.id === user?.id ? 'cursor-not-allowed opacity-40' : 'hover:opacity-80'}`}
+                          >
+                            {u.activo
+                              ? <ToggleRight size={28} className="text-emerald-500" />
+                              : <ToggleLeft size={28} className="text-slate-400" />
+                            }
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         )}
@@ -1267,6 +1548,52 @@ export default function App() {
                   className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm shadow-md"
                 >
                   Guardar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CREAR USUARIO */}
+      {showUserModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
+            <h3 className="text-lg font-bold text-slate-800 mb-4">Crear Nuevo Usuario</h3>
+            <form onSubmit={handleCreateUser} className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-600">Nombre Completo *</label>
+                <input type="text" required value={newUser.nombre}
+                  onChange={e => setNewUser({ ...newUser, nombre: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border rounded-xl text-sm" placeholder="Juan Pérez" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600">Correo Electrónico *</label>
+                <input type="email" required value={newUser.email}
+                  onChange={e => setNewUser({ ...newUser, email: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border rounded-xl text-sm" placeholder="vendedor@tienda.com" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600">Contraseña *</label>
+                <input type="password" required minLength={6} value={newUser.password}
+                  onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border rounded-xl text-sm" placeholder="Mínimo 6 caracteres" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600">Rol</label>
+                <select value={newUser.rol} onChange={e => setNewUser({ ...newUser, rol: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border rounded-xl text-sm bg-white">
+                  <option value="vendedor">🟢 Vendedor</option>
+                  <option value="admin">🟣 Administrador</option>
+                </select>
+              </div>
+              <div className="flex gap-2 pt-4">
+                <button type="button" onClick={() => { setShowUserModal(false); setNewUser({ nombre: '', email: '', password: '', rol: 'vendedor' }); }}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm">
+                  Cancelar
+                </button>
+                <button type="submit" className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm shadow-md">
+                  Crear Usuario
                 </button>
               </div>
             </form>
