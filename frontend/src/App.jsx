@@ -41,12 +41,18 @@ export default function App() {
   const [purchasePrice, setPurchasePrice] = useState('');
   const [purchaseMsg, setPurchaseMsg] = useState('');
 
+  const isAdmin = user?.rol === 'admin';
+
   useEffect(() => {
     if (token) {
       loadProducts();
-      loadDashboard();
+      if (isAdmin) {
+        loadDashboard();
+      } else {
+        setActiveTab('pos');
+      }
     }
-  }, [token]);
+  }, [token, user]);
 
   const loadProducts = async () => {
     try {
@@ -301,20 +307,24 @@ export default function App() {
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition text-sm ${activeTab === 'inventory' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}
           >
             <Package size={18} />
-            Inventario / Productos
+            Inventario / Catálogo
           </button>
-          <button 
-            onClick={() => setActiveTab('dashboard')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition text-sm ${activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}
-          >
-            <LayoutDashboard size={18} />
-            Dashboard & KPIs
-          </button>
+          {isAdmin && (
+            <button 
+              onClick={() => setActiveTab('dashboard')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition text-sm ${activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}
+            >
+              <LayoutDashboard size={18} />
+              Dashboard & KPIs
+            </button>
+          )}
         </nav>
 
         <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2 overflow-hidden">
-            <UserCheck size={18} className="text-emerald-400 flex-shrink-0" />
+            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${isAdmin ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}>
+              {isAdmin ? 'ADMIN' : 'VENDEDOR'}
+            </span>
             <span className="text-xs text-slate-300 truncate">{user?.nombre || user?.email}</span>
           </div>
           <button onClick={handleLogout} title="Cerrar sesión" className="p-2 text-slate-400 hover:text-rose-400 transition">
@@ -348,13 +358,15 @@ export default function App() {
                     className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                   />
                 </div>
-                <button 
-                  onClick={() => setShowProductModal(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-md transition"
-                >
-                  <Plus size={16} />
-                  Nuevo Producto
-                </button>
+                {isAdmin && (
+                  <button 
+                    onClick={() => setShowProductModal(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-md transition"
+                  >
+                    <Plus size={16} />
+                    Nuevo Producto
+                  </button>
+                )}
               </div>
 
               {loadingProducts ? (
@@ -398,13 +410,15 @@ export default function App() {
                       <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                         <span className="text-lg font-extrabold text-slate-900">${p.precio_venta.toFixed(2)}</span>
                         <div className="flex gap-2">
-                          <button 
-                            onClick={() => { setPurchaseProduct(p); setPurchasePrice(p.precio_compra); }}
-                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium"
-                            title="Entrada de Stock (Compra)"
-                          >
-                            + Stock
-                          </button>
+                          {isAdmin && (
+                            <button 
+                              onClick={() => { setPurchaseProduct(p); setPurchasePrice(p.precio_compra); }}
+                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium"
+                              title="Entrada de Stock (Compra)"
+                            >
+                              + Stock
+                            </button>
+                          )}
                           <button 
                             onClick={() => addToCart(p)}
                             disabled={p.stock_actual <= 0}
@@ -505,16 +519,22 @@ export default function App() {
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
             <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
               <div>
-                <h2 className="text-xl font-bold text-slate-800">Catálogo de Inventario</h2>
-                <p className="text-xs text-slate-500">Gestión de existencias sincronizada con Supabase PostgreSQL</p>
+                <h2 className="text-xl font-bold text-slate-800">
+                  {isAdmin ? 'Catálogo de Inventario' : 'Catálogo de Productos y Precios'}
+                </h2>
+                <p className="text-xs text-slate-500">
+                  {isAdmin ? 'Gestión de existencias sincronizada con Supabase PostgreSQL' : 'Consulta de existencias y precios al público'}
+                </p>
               </div>
-              <button 
-                onClick={() => setShowProductModal(true)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-md transition"
-              >
-                <Plus size={16} />
-                Nuevo Producto
-              </button>
+              {isAdmin && (
+                <button 
+                  onClick={() => setShowProductModal(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-md transition"
+                >
+                  <Plus size={16} />
+                  Nuevo Producto
+                </button>
+              )}
             </div>
 
             <div className="overflow-x-auto">
@@ -523,9 +543,9 @@ export default function App() {
                   <tr>
                     <th className="px-6 py-3 font-semibold">SKU</th>
                     <th className="px-6 py-3 font-semibold">Producto</th>
-                    <th className="px-6 py-3 font-semibold">P. Compra</th>
+                    {isAdmin && <th className="px-6 py-3 font-semibold">P. Compra</th>}
                     <th className="px-6 py-3 font-semibold">P. Venta</th>
-                    <th className="px-6 py-3 font-semibold">Margen</th>
+                    {isAdmin && <th className="px-6 py-3 font-semibold">Margen</th>}
                     <th className="px-6 py-3 font-semibold">Stock</th>
                     <th className="px-6 py-3 font-semibold text-right">Acción</th>
                   </tr>
@@ -533,7 +553,7 @@ export default function App() {
                 <tbody className="divide-y divide-slate-100">
                   {products.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="px-6 py-8 text-center text-slate-400">No hay productos registrados</td>
+                      <td colSpan={isAdmin ? 7 : 5} className="px-6 py-8 text-center text-slate-400">No hay productos registrados</td>
                     </tr>
                   ) : (
                     products.map(p => (
@@ -541,13 +561,15 @@ export default function App() {
                         <td className="px-6 py-4 font-mono font-semibold text-slate-700">{p.sku}</td>
                         <td className="px-6 py-4">
                           <p className="font-bold text-slate-800">{p.nombre}</p>
-                          <p className="text-xs text-slate-400">{p.descripcion || '-'}</p>
+                          {p.descripcion && <p className="text-xs text-slate-400">{p.descripcion}</p>}
                         </td>
-                        <td className="px-6 py-4 text-slate-600">${p.precio_compra.toFixed(2)}</td>
+                        {isAdmin && <td className="px-6 py-4 text-slate-600">${p.precio_compra.toFixed(2)}</td>}
                         <td className="px-6 py-4 font-bold text-slate-900">${p.precio_venta.toFixed(2)}</td>
-                        <td className="px-6 py-4 text-emerald-600 font-semibold">
-                          +${(p.precio_venta - p.precio_compra).toFixed(2)}
-                        </td>
+                        {isAdmin && (
+                          <td className="px-6 py-4 text-emerald-600 font-semibold">
+                            +${(p.precio_venta - p.precio_compra).toFixed(2)}
+                          </td>
+                        )}
                         <td className="px-6 py-4">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5 ${
                             p.stock_actual <= p.stock_minimo ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
@@ -557,12 +579,24 @@ export default function App() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <button 
-                            onClick={() => { setPurchaseProduct(p); setPurchasePrice(p.precio_compra); }}
-                            className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition"
-                          >
-                            + Abastecer
-                          </button>
+                          {isAdmin ? (
+                            <button 
+                              onClick={() => { setPurchaseProduct(p); setPurchasePrice(p.precio_compra); }}
+                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition"
+                            >
+                              + Abastecer
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => { setActiveTab('pos'); addToCart(p); }}
+                              disabled={p.stock_actual <= 0}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                                p.stock_actual <= 0 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                              }`}
+                            >
+                              Vender
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))
