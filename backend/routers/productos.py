@@ -16,12 +16,13 @@ router = APIRouter(prefix="/api/v1/productos", tags=["Inventario / Productos"])
 def listar_productos(
     solo_activos: bool = True,
     db: Session = Depends(get_db),
-    _=Depends(get_current_user),
 ):
+    """Listado público de productos (permite consultar catálogo sin token en Swagger y tienda)."""
     q = db.query(models.Producto)
     if solo_activos:
         q = q.filter(models.Producto.activo == True)
     return q.order_by(models.Producto.nombre).all()
+
 
 
 @router.get("/stock-bajo", response_model=List[schemas.ProductoOut])
