@@ -719,6 +719,249 @@ export default function App() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // Imprimir Catálogo Formal a Color (Hoja Carta) con Cabecera Carmesí Oficial
+  const imprimirCatalogoFormal = (productosAImprimir, filtroLabel) => {
+    const prods = productosAImprimir || products;
+    if (!prods || prods.length === 0) {
+      showToast('No hay productos en el catálogo para imprimir', 'warning');
+      return;
+    }
+    const totalStock = prods.reduce((acc, p) => acc + p.stock_actual, 0);
+    const totalValuadoVenta = prods.reduce((acc, p) => acc + (p.stock_actual * p.precio_venta), 0);
+    const totalValuadoCompra = prods.reduce((acc, p) => acc + (p.stock_actual * (p.precio_compra || 0)), 0);
+
+    const win = window.open('', '_blank', 'width=950,height=900');
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Catálogo de Inventario - Carnicería RM</title>
+      <style>
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; box-sizing: border-box; }
+        @page { size: letter; margin: 12mm 15mm; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1e293b; margin: 0; padding: 10px 0; background: #fff; }
+        .catalog-wrapper { max-width: 820px; margin: 0 auto; }
+        
+        .header {
+          background: linear-gradient(135deg, #991b1b 0%, #881337 55%, #4c0519 100%) !important;
+          color: #ffffff !important;
+          padding: 22px 26px;
+          border-radius: 18px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 18px;
+          box-shadow: 0 4px 14px rgba(136, 19, 55, 0.25);
+        }
+        .brand-wrap { display: flex; align-items: center; gap: 16px; }
+        .badge-tag {
+          display: inline-block;
+          background: rgba(255, 255, 255, 0.2) !important;
+          color: #fef08a !important;
+          padding: 3px 12px;
+          border-radius: 9999px;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          margin-bottom: 4px;
+          border: 1px solid rgba(255,255,255,0.25);
+        }
+        .brand-name { font-size: 25px; font-weight: 900; color: #ffffff; margin: 0; letter-spacing: -0.5px; }
+        .brand-sub { font-size: 12px; font-weight: 600; color: #ffe4e6; margin-top: 2px; }
+        
+        .badge-box {
+          background: #ffffff !important;
+          color: #4c0519 !important;
+          font-family: monospace;
+          font-size: 14px;
+          font-weight: 900;
+          padding: 8px 16px;
+          border-radius: 12px;
+          box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+          border: 1px solid #ffe4e6;
+          text-align: center;
+        }
+        .catalog-date { font-size: 11px; color: #fecdd3; margin-top: 5px; font-weight: 600; text-align: right; }
+        
+        .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #f8fafc !important; border: 1px solid #e2e8f0; padding: 14px 18px; border-radius: 14px; font-size: 11px; margin-bottom: 18px; }
+        .meta-col strong { color: #0f172a; }
+        .meta-title { font-size: 9.5px; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.8px; }
+
+        .table-container { border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; margin-bottom: 18px; }
+        .table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+        .table th { background: #f1f5f9 !important; color: #475569; padding: 10px 12px; text-transform: uppercase; font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-align: left; border-bottom: 1px solid #cbd5e1; }
+        .table td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .table tr:nth-child(even) { background: #fafafa !important; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+
+        .photo-thumb { width: 38px; height: 38px; border-radius: 8px; object-fit: cover; border: 1px solid #cbd5e1; display: block; margin: 0 auto; background: #fff; }
+        .no-photo { width: 38px; height: 38px; border-radius: 8px; background: #f1f5f9; border: 1px dashed #cbd5e1; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #94a3b8; margin: 0 auto; }
+
+        .summary-container { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 15px; gap: 15px; }
+        .qr-box { display: flex; align-items: center; gap: 12px; background: #f8fafc !important; padding: 12px 16px; border-radius: 14px; border: 1px solid #e2e8f0; font-size: 10px; color: #64748b; }
+        .qr-box img { width: 65px; height: 65px; border-radius: 6px; background: #fff; padding: 2px; border: 1px solid #cbd5e1; }
+        
+        .totals-card { width: 340px; background: #f8fafc !important; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 18px; font-size: 11.5px; }
+        .totals-card .line { display: flex; justify-content: space-between; margin-bottom: 4px; color: #475569; }
+        .totals-card .line.main {
+          background: #eef2ff !important;
+          border: 1.5px solid #c7d2fe;
+          border-radius: 10px;
+          padding: 8px 12px;
+          color: #1e1b4b;
+          font-weight: 900;
+          font-size: 13.5px;
+          margin-top: 6px;
+        }
+        .totals-card .line.main span:last-child {
+          font-size: 16px;
+          color: #4338ca;
+          font-family: monospace;
+        }
+        
+        .footer-note { text-align: center; margin-top: 25px; font-size: 10px; color: #94a3b8; border-top: 1px dashed #cbd5e1; padding-top: 12px; font-style: italic; }
+      </style></head><body>
+        <div class="catalog-wrapper">
+          <div class="header">
+            <div class="brand-wrap">
+              <svg viewBox="0 0 100 100" width="70" height="70" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.35));">
+                <defs>
+                  <linearGradient id="cShieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#b91c1c" />
+                    <stop offset="45%" stop-color="#881337" />
+                    <stop offset="100%" stop-color="#450a0a" />
+                  </linearGradient>
+                  <linearGradient id="cGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#fef08a" />
+                    <stop offset="45%" stop-color="#f59e0b" />
+                    <stop offset="100%" stop-color="#b45309" />
+                  </linearGradient>
+                </defs>
+                <path d="M50 4 L88 18 C88 58 68 85 50 96 C32 85 12 58 12 18 Z" fill="url(#cShieldGrad)" stroke="url(#cGoldGrad)" stroke-width="4" />
+                <path d="M50 11 L81 22 C81 54 64 77 50 87 C36 77 19 54 19 22 Z" fill="none" stroke="url(#cGoldGrad)" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.85" />
+                <path d="M32 29 C34 23 40 21 44 25 C41 28 40 32 43 35 C46 33 54 33 57 35 C60 32 59 28 56 25 C60 21 66 23 68 29 C62 32 58 38 57 42 C55 44 45 44 43 42 C42 38 38 32 32 29 Z" fill="url(#cGoldGrad)" />
+                <path d="M50 16 L51.2 19.5 L55 19.8 L52.2 22.2 L53 25.8 L50 23.8 L47 25.8 L47.8 22.2 L45 19.8 L48.8 19.5 Z" fill="url(#cGoldGrad)" />
+                <circle cx="36" cy="20" r="2" fill="url(#cGoldGrad)" />
+                <circle cx="64" cy="20" r="2" fill="url(#cGoldGrad)" />
+                <text x="50" y="66" text-anchor="middle" fill="#ffffff" font-size="25" font-weight="900" font-family="Arial, sans-serif" letter-spacing="1.5">RM</text>
+                <rect x="20" y="73.5" width="60" height="12" rx="6" fill="#18181b" stroke="url(#cGoldGrad)" stroke-width="1.2" />
+                <text x="50" y="82.5" text-anchor="middle" fill="url(#cGoldGrad)" font-size="7" font-weight="900" letter-spacing="1.2" font-family="Arial, sans-serif">CARNICERÍA</text>
+              </svg>
+              <div>
+                <div class="badge-tag">CATÁLOGO OFICIAL · CORTES SELECTOS & PRODUCTOS</div>
+                <h1 class="brand-name">Carnicería RM</h1>
+                <div class="brand-sub">Reporte de Inventario, Precios y Existencias en Tienda</div>
+              </div>
+            </div>
+            <div>
+              <div class="badge-box">
+                ${prods.length} ARTÍCULOS
+              </div>
+              <div class="catalog-date">
+                ${new Date().toLocaleDateString('es-ES')} ${new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-col">
+              <div class="meta-title">INFORMACIÓN DEL CATÁLOGO</div>
+              <div>Filtro: <strong>${filtroLabel || 'Catálogo General'}</strong></div>
+              <div>Moneda oficial: <strong>${currencySymbol.trim() === 'Bs' ? 'Bolivianos (BOB)' : 'Dólares (USD)'}</strong></div>
+            </div>
+            <div class="meta-col" style="text-align:right;">
+              <div class="meta-title">DATOS DE AUDITORÍA</div>
+              <div>Generado por: <strong>${user?.nombre || user?.email} (${(user?.rol || 'admin').toUpperCase()})</strong></div>
+              <div>Estado de sincronización: <strong style="color:#059669;">Conectado a Supabase</strong></div>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th style="width:8%;" class="text-center">FOTO</th>
+                  <th style="width:14%;">SKU</th>
+                  <th style="width:34%;">PRODUCTO / CORTE</th>
+                  ${isAdmin ? `<th style="width:14%;" class="text-right">P. COMPRA</th>` : ''}
+                  <th style="width:14%;" class="text-right">P. VENTA</th>
+                  <th style="width:16%;" class="text-center">EXISTENCIA</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${prods.map(p => {
+                  const stockStatus = p.stock_actual <= 0 
+                    ? { label: 'AGOTADO', bg: '#ffe4e6', color: '#9f1239' } 
+                    : p.stock_actual <= p.stock_minimo 
+                      ? { label: 'STOCK BAJO', bg: '#fef3c7', color: '#92400e' } 
+                      : { label: 'DISPONIBLE', bg: '#dcfce7', color: '#166534' };
+
+                  return `
+                    <tr>
+                      <td class="text-center">
+                        ${p.imagen_url 
+                          ? `<img src="${p.imagen_url}" class="photo-thumb" alt="${p.nombre}" />` 
+                          : `<div class="no-photo">Sin foto</div>`
+                        }
+                      </td>
+                      <td style="font-family:monospace; font-weight:bold; color:#0f172a;">${p.sku}</td>
+                      <td>
+                        <div style="font-weight:700; color:#0f172a;">${p.nombre}</div>
+                        ${p.descripcion ? `<div style="font-size:10px; color:#64748b; margin-top:2px;">${p.descripcion}</div>` : ''}
+                      </td>
+                      ${isAdmin ? `<td class="text-right" style="font-family:monospace; color:#64748b;">${currencySymbol}${p.precio_compra.toFixed(2)}</td>` : ''}
+                      <td class="text-right" style="font-weight:900; font-family:monospace; color:#0f172a; font-size:12px;">${currencySymbol}${p.precio_venta.toFixed(2)}</td>
+                      <td class="text-center">
+                        <span style="display:inline-block; padding:3px 8px; border-radius:6px; font-size:10px; font-weight:bold; background:${stockStatus.bg}; color:${stockStatus.color};">
+                          ${p.stock_actual} unid. (${stockStatus.label})
+                        </span>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="summary-container">
+            <div class="qr-box">
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`CarniceriaRM|Catalogo|TotalArticulos:${prods.length}|StockTotal:${totalStock}|Valuacion:${totalValuadoVenta}|Fecha:${new Date().toISOString()}`)}" />
+              <div>
+                <div style="font-weight:bold; color:#0f172a; font-size:11px;">CATÁLOGO OFICIAL CERTIFICADO</div>
+                <div>Carnicería RM · Cortes Selectos</div>
+                <div style="color:#059669; font-weight:bold; margin-top:2px;">✓ Registro Oficial de Precios</div>
+              </div>
+            </div>
+
+            <div class="totals-card">
+              <div class="line">
+                <span>Artículos en catálogo:</span>
+                <strong>${prods.length} productos</strong>
+              </div>
+              <div class="line">
+                <span>Unidades en existencia:</span>
+                <strong>${totalStock} unid.</strong>
+              </div>
+              ${isAdmin ? `
+                <div class="line">
+                  <span>Valor de costo (compra):</span>
+                  <strong style="color:#64748b;">${currencySymbol}${totalValuadoCompra.toFixed(2)}</strong>
+                </div>
+              ` : ''}
+              <div class="line main">
+                <span>VALOR TOTAL VENTA:</span>
+                <span>${currencySymbol}${totalValuadoVenta.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="footer-note">
+            Catálogo y lista de precios emitido por el Sistema Carnicería RM · Calidad y Frescura Garantizada
+          </div>
+        </div>
+      </body></html>`);
+    win.document.close();
+    setTimeout(() => { win.focus(); win.print(); }, 400);
+  };
+
   // PDF Export
   const exportPDF = () => {
     const doc = new jsPDF('p', 'mm', 'a4');
@@ -1786,14 +2029,29 @@ export default function App() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                {/* Botón Imprimir Catálogo Formal a Color (Idéntico a la Factura) */}
+                <button 
+                  onClick={() => imprimirCatalogoFormal(
+                    filteredInventoryProducts, 
+                    inventoryFilter === 'low_stock' ? 'Productos con Stock Bajo' : 'Catálogo Completo'
+                  )}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-red-700 via-rose-700 to-rose-800 hover:from-red-800 hover:to-rose-900 text-white rounded-xl text-sm font-bold shadow-md shadow-rose-200 transition"
+                  title="Imprimir catálogo oficial formal a color (Hoja Carta)"
+                >
+                  <Printer size={16} />
+                  Imprimir Catálogo Formal
+                </button>
+
                 {/* Botón Descargar Reporte PDF */}
                 <button 
                   onClick={exportPDF}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold shadow-md transition"
+                  className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold shadow-sm transition"
+                  title="Descargar archivo PDF"
                 >
                   <FileDown size={16} />
                   Descargar PDF
                 </button>
+
                 {isAdmin && (
                   <button 
                     onClick={openNewProductModal}
