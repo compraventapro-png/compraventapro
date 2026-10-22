@@ -304,16 +304,16 @@ export default function App() {
     const doc = new jsPDF('p', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    // Encabezado
-    doc.setFillColor(49, 46, 129); // indigo-900
+    // Encabezado Carnicería RM
+    doc.setFillColor(153, 27, 27); // red-800 / Carmesí Gourmet
     doc.rect(0, 0, pageWidth, 28, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(15);
     doc.setFont('helvetica', 'bold');
-    doc.text('CompraVentaPro — Reporte Oficial de Ventas', 14, 13);
+    doc.text('Carnicería RM — Reporte Oficial de Ventas', 14, 13);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Filtro: ${fechaLabel || 'Todas las ventas'} · Moneda: ${currencySymbol.trim()}`, 14, 21);
+    doc.text(`Cortes Selectos · Filtro: ${fechaLabel || 'Todas las ventas'} · Moneda: ${currencySymbol.trim()}`, 14, 21);
     doc.text(`Emitido: ${new Date().toLocaleDateString('es-ES')} ${new Date().toLocaleTimeString('es-ES')}`, pageWidth - 14, 21, { align: 'right' });
 
     // Filas para la tabla
@@ -335,11 +335,11 @@ export default function App() {
 
     autoTable(doc, {
       startY: 34,
-      head: [['N°', 'ID', 'Fecha / Hora', 'Productos Comprados en la Venta', 'Total']],
+      head: [['N°', 'ID', 'Fecha / Hora', 'Cortes / Productos Comprados', 'Total']],
       body: rows,
       theme: 'grid',
       headStyles: {
-        fillColor: [79, 70, 229],
+        fillColor: [153, 27, 27], // Carmesí Carnicería RM
         textColor: 255,
         fontStyle: 'bold',
         fontSize: 9,
@@ -368,8 +368,8 @@ export default function App() {
     doc.setFont('helvetica', 'bold');
     doc.text(`TOTAL RECAUDADO: ${currencySymbol}${totalRecaudado.toFixed(2)}`, pageWidth - 18, finalY + 14, { align: 'right' });
 
-    doc.save(`Reporte_Ventas_${fechaLabel ? fechaLabel.replace(/[^a-zA-Z0-9]/g, '_') : 'General'}.pdf`);
-    showToast('Reporte de ventas descargado en PDF', 'success');
+    doc.save(`Reporte_Ventas_CarniceriaRM_${fechaLabel ? fechaLabel.replace(/[^a-zA-Z0-9]/g, '_') : 'General'}.pdf`);
+    showToast('Reporte de Carnicería RM descargado en PDF', 'success');
   };
 
   const loadUsuarios = async () => {
@@ -465,13 +465,13 @@ export default function App() {
     const pageWidth = doc.internal.pageSize.getWidth();
 
     // Encabezado
-    doc.setFillColor(30, 41, 59); // slate-800
+    doc.setFillColor(153, 27, 27); // red-800 Carnicería RM
     doc.rect(0, 0, pageWidth, 26, 'F');
 
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('CompraVentaPro — Reporte de Inventario', 14, 13);
+    doc.text('Carnicería RM — Reporte de Inventario y Cortes', 14, 13);
 
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
@@ -555,7 +555,8 @@ export default function App() {
     doc.setFont('helvetica', 'bold');
     doc.text(`Valor Total de Venta: ${currencySymbol}${totalValuado.toFixed(2)}`, pageWidth - 18, finalY + 14, { align: 'right' });
 
-    doc.save(`Inventario_CompraVentaPro_${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(`Inventario_CarniceriaRM_${new Date().toISOString().slice(0, 10)}.pdf`);
+    showToast('Catálogo de Carnicería RM descargado en PDF', 'success');
   };
 
   // Login / Register handler
@@ -2487,27 +2488,25 @@ export default function App() {
       {ticketData && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden my-4 animate-in fade-in zoom-in-95 duration-200">
-            {/* Cabecera Corporativa con Estilo y Color */}
-            <div className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-indigo-800 text-white p-6 relative overflow-hidden">
+            {/* Cabecera Corporativa Carnicería RM */}
+            <div className="bg-gradient-to-r from-red-800 via-rose-800 to-rose-950 text-white p-6 relative overflow-hidden">
               <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
               <div className="flex items-start justify-between relative z-10">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
-                    <Receipt size={28} className="text-white" />
-                  </div>
+                <div className="flex items-center gap-3.5">
+                  <LogoCarniceriaRM className="w-12 h-12 flex-shrink-0 drop-shadow-md" />
                   <div>
-                    <span className="text-[10px] tracking-widest font-black uppercase bg-white/20 px-2 py-0.5 rounded-full inline-block mb-1">
-                      Comprobante Electrónico
+                    <span className="text-[10px] tracking-widest font-black uppercase bg-white/20 text-amber-300 px-2.5 py-0.5 rounded-full inline-block mb-1 border border-white/10">
+                      Factura Oficial · Cortes Selectos
                     </span>
-                    <h3 className="text-xl font-black tracking-tight">CompraVentaPro</h3>
-                    <p className="text-xs text-indigo-100">Solución Integral de Inventario y Ventas</p>
+                    <h3 className="text-xl font-black tracking-tight">Carnicería RM</h3>
+                    <p className="text-xs text-rose-100">Res, Cerdo, Pollo y Embutidos Artesanales</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="inline-block bg-white text-indigo-900 font-mono font-black text-xs px-3 py-1.5 rounded-xl shadow-sm">
+                  <span className="inline-block bg-white text-rose-950 font-mono font-black text-xs px-3 py-1.5 rounded-xl shadow-sm border border-rose-100">
                     {ticketData.nroFactura || 'FAC-00001'}
                   </span>
-                  <p className="text-[11px] text-indigo-200 mt-1">{ticketData.fecha} · {ticketData.hora}</p>
+                  <p className="text-[11px] text-rose-200 mt-1 font-semibold">{ticketData.fecha} · {ticketData.hora}</p>
                 </div>
               </div>
             </div>
@@ -2616,13 +2615,13 @@ export default function App() {
                 type="button"
                 onClick={() => {
                   const win = window.open('', '_blank', 'width=420,height=600');
-                  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${ticketData.nroFactura}</title>
+                  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${ticketData.nroFactura} - Carnicería RM</title>
                     <style>
                       @page { size: 80mm auto; margin: 0; }
                       body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; font-size: 11px; margin: 0; padding: 12px; color: #111; max-width: 80mm; box-sizing: border-box; }
                       .text-center { text-align: center; }
                       .font-bold { font-weight: bold; }
-                      .title { font-size: 15px; font-weight: 900; margin: 0 0 2px 0; }
+                      .title { font-size: 16px; font-weight: 900; margin: 0 0 2px 0; letter-spacing: 0.5px; }
                       .hr { border: none; border-top: 1px dashed #777; margin: 8px 0; }
                       .table { width: 100%; border-collapse: collapse; font-size: 11px; }
                       .table th { border-bottom: 1px solid #000; padding: 3px 0; text-align: left; font-size: 10px; }
@@ -2633,9 +2632,11 @@ export default function App() {
                       .qr-wrap img { width: 75px; height: 75px; }
                     </style></head><body>
                       <div class="text-center">
-                        <h2 class="title">COMPRAVENTAPRO</h2>
-                        <div>NIT: 1028475029 · La Paz - Bolivia</div>
-                        <div class="font-bold">${ticketData.nroFactura}</div>
+                        <h2 class="title">CARNICERÍA RM</h2>
+                        <div style="font-size:10px;font-weight:bold;color:#444;">CORTES SELECTOS & CALIDAD</div>
+                        <div>NIT: 1028374029 · La Paz - Bolivia</div>
+                        <div>Tel: +591 70000000</div>
+                        <div class="font-bold" style="margin-top:4px;">${ticketData.nroFactura}</div>
                       </div>
                       <div class="hr"></div>
                       <div><b>Fecha:</b> ${ticketData.fecha} ${ticketData.hora}</div>
@@ -2654,8 +2655,8 @@ export default function App() {
                       <div><b>Método:</b> ${ticketData.metodoPago.toUpperCase()}</div>
                       ${ticketData.metodoPago === 'efectivo' ? `<div>Recibido: ${currencySymbol}${ticketData.montoRecibido.toFixed(2)}</div><div class="font-bold">Vuelto: ${currencySymbol}${ticketData.vuelto.toFixed(2)}</div>` : ''}
                       <div class="qr-wrap">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`Factura:${ticketData.nroFactura}|Total:${ticketData.total}`)}" />
-                        <div style="font-size:9px;color:#666;margin-top:4px;">¡Gracias por su compra!</div>
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`CarniceriaRM|${ticketData.nroFactura}|NIT:${ticketData.nit}|Total:${ticketData.total}`)}" />
+                        <div style="font-size:9px;color:#666;margin-top:4px;">¡Gracias por preferir Carnicería RM!</div>
                       </div>
                     </body></html>`);
                   win.document.close();
@@ -2670,45 +2671,73 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => {
-                  const win = window.open('', '_blank', 'width=800,height=900');
-                  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${ticketData.nroFactura} - Factura Formal</title>
+                  const win = window.open('', '_blank', 'width=850,height=900');
+                  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${ticketData.nroFactura} - Carnicería RM Factura</title>
                     <style>
                       @page { size: letter; margin: 15mm; }
                       body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1e293b; margin: 0; padding: 25px; background: #fff; }
-                      .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 20px; border-bottom: 3px solid #4f46e5; }
-                      .brand-name { font-size: 26px; font-weight: 900; color: #312e81; margin: 0; letter-spacing: -0.5px; }
-                      .brand-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
-                      .invoice-badge { background: #eef2ff; border: 1.5px solid #c7d2fe; padding: 12px 18px; rounded: 12px; border-radius: 12px; text-align: right; }
-                      .invoice-title { font-size: 13px; font-weight: 800; color: #4338ca; text-transform: uppercase; letter-spacing: 1px; }
-                      .invoice-num { font-size: 18px; font-weight: 900; color: #1e1b4b; font-family: monospace; }
-                      .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 25px 0; background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 12px; font-size: 12px; }
+                      .header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 3px solid #991b1b; }
+                      .brand-wrap { display: flex; align-items: center; gap: 15px; }
+                      .brand-name { font-size: 26px; font-weight: 900; color: #881337; margin: 0; letter-spacing: -0.5px; }
+                      .brand-sub { font-size: 11px; font-weight: 700; color: #b45309; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+                      .brand-info { font-size: 11px; color: #475569; margin-top: 4px; }
+                      .invoice-badge { background: #fff1f2; border: 1.5px solid #fecdd3; padding: 12px 18px; border-radius: 12px; text-align: right; }
+                      .invoice-title { font-size: 12px; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 1px; }
+                      .invoice-num { font-size: 18px; font-weight: 900; color: #4c0519; font-family: monospace; }
+                      .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 25px 0; background: #fff5f5; border: 1px solid #fee2e2; padding: 16px; border-radius: 12px; font-size: 12px; }
                       .meta-col strong { color: #0f172a; }
-                      .meta-title { font-size: 10px; font-weight: 800; color: #6366f1; text-transform: uppercase; margin-bottom: 5px; }
+                      .meta-title { font-size: 10px; font-weight: 800; color: #991b1b; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.5px; }
                       .table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }
-                      .table th { background: #4f46e5; color: #ffffff; padding: 10px 14px; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; text-align: left; }
+                      .table th { background: #991b1b; color: #ffffff; padding: 10px 14px; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; text-align: left; }
                       .table th:first-child { border-radius: 8px 0 0 8px; }
                       .table th:last-child { border-radius: 0 8px 8px 0; text-align: right; }
-                      .table td { padding: 12px 14px; border-bottom: 1px solid #e2e8f0; }
-                      .table tr:nth-child(even) { background: #f8fafc; }
+                      .table td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; }
+                      .table tr:nth-child(even) { background: #fffbfb; }
                       .text-right { text-align: right; }
                       .summary-container { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 25px; }
-                      .qr-box { display: flex; align-items: center; gap: 12px; background: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-size: 10px; color: #64748b; }
+                      .qr-box { display: flex; align-items: center; gap: 12px; background: #fafaf9; padding: 12px; border-radius: 12px; border: 1px solid #e7e5e4; font-size: 10px; color: #57534e; }
                       .qr-box img { width: 70px; height: 70px; border-radius: 6px; }
-                      .total-card { width: 260px; background: #312e81; color: white; padding: 14px 18px; border-radius: 12px; font-size: 12px; }
+                      .total-card { width: 270px; background: #881337; color: white; padding: 14px 18px; border-radius: 12px; font-size: 12px; box-shadow: 0 4px 6px -1px rgba(136, 19, 55, 0.2); }
                       .total-card .line { display: flex; justify-content: space-between; margin-bottom: 6px; }
-                      .total-card .line.main { font-size: 18px; font-weight: 900; color: #38bdf8; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 8px; margin-top: 8px; }
-                      .footer-note { text-align: center; margin-top: 40px; font-size: 10px; color: #94a3b8; border-top: 1px dashed #cbd5e1; padding-top: 15px; }
+                      .total-card .line.main { font-size: 18px; font-weight: 900; color: #fef08a; border-top: 1px solid rgba(255,255,255,0.25); padding-top: 8px; margin-top: 8px; }
+                      .footer-note { text-align: center; margin-top: 40px; font-size: 10px; color: #71717a; border-top: 1px dashed #cbd5e1; padding-top: 15px; }
                     </style></head><body>
                       <div class="header">
-                        <div>
-                          <h1 class="brand-name">CompraVentaPro</h1>
-                          <div class="brand-sub">Comercializadora y Distribución · Sistema Computarizado</div>
-                          <div style="font-size:11px;color:#475569;margin-top:6px;">Av. Principal #1042 · La Paz - Bolivia · Tel: +591 70000000</div>
+                        <div class="brand-wrap">
+                          <!-- SVG ESCUDO OFICIAL CARNICERÍA RM -->
+                          <svg viewBox="0 0 100 100" width="75" height="75" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">
+                            <defs>
+                              <linearGradient id="pShieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#b91c1c" />
+                                <stop offset="45%" stop-color="#881337" />
+                                <stop offset="100%" stop-color="#450a0a" />
+                              </linearGradient>
+                              <linearGradient id="pGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#fef08a" />
+                                <stop offset="45%" stop-color="#f59e0b" />
+                                <stop offset="100%" stop-color="#b45309" />
+                              </linearGradient>
+                            </defs>
+                            <path d="M50 4 L88 18 C88 58 68 85 50 96 C32 85 12 58 12 18 Z" fill="url(#pShieldGrad)" stroke="url(#pGoldGrad)" stroke-width="4" />
+                            <path d="M50 11 L81 22 C81 54 64 77 50 87 C36 77 19 54 19 22 Z" fill="none" stroke="url(#pGoldGrad)" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.85" />
+                            <path d="M32 29 C34 23 40 21 44 25 C41 28 40 32 43 35 C46 33 54 33 57 35 C60 32 59 28 56 25 C60 21 66 23 68 29 C62 32 58 38 57 42 C55 44 45 44 43 42 C42 38 38 32 32 29 Z" fill="url(#pGoldGrad)" />
+                            <path d="M50 16 L51.2 19.5 L55 19.8 L52.2 22.2 L53 25.8 L50 23.8 L47 25.8 L47.8 22.2 L45 19.8 L48.8 19.5 Z" fill="url(#pGoldGrad)" />
+                            <circle cx="36" cy="20" r="2" fill="url(#pGoldGrad)" />
+                            <circle cx="64" cy="20" r="2" fill="url(#pGoldGrad)" />
+                            <text x="50" y="66" text-anchor="middle" fill="#ffffff" font-size="25" font-weight="900" font-family="Arial, sans-serif" letter-spacing="1.5">RM</text>
+                            <rect x="20" y="73.5" width="60" height="12" rx="6" fill="#18181b" stroke="url(#pGoldGrad)" stroke-width="1.2" />
+                            <text x="50" y="82.5" text-anchor="middle" fill="url(#pGoldGrad)" font-size="7" font-weight="900" letter-spacing="1.2" font-family="Arial, sans-serif">CARNICERÍA</text>
+                          </svg>
+                          <div>
+                            <h1 class="brand-name">Carnicería RM</h1>
+                            <div class="brand-sub">Cortes Selectos · Res, Cerdo, Pollo y Embutidos Artesanales</div>
+                            <div class="brand-info">Casa Matriz: Av. Principal #1042 · La Paz - Bolivia · NIT: 1028374029 · Tel: +591 70000000</div>
+                          </div>
                         </div>
                         <div class="invoice-badge">
                           <div class="invoice-title">FACTURA / NOTA DE VENTA</div>
                           <div class="invoice-num">${ticketData.nroFactura}</div>
-                          <div style="font-size:11px;color:#64748b;margin-top:4px;">Emisión: ${ticketData.fecha} · ${ticketData.hora}</div>
+                          <div style="font-size:11px;color:#881337;margin-top:4px;font-weight:600;">Emisión: ${ticketData.fecha} · ${ticketData.hora}</div>
                         </div>
                       </div>
 
@@ -2731,7 +2760,7 @@ export default function App() {
                         <thead>
                           <tr>
                             <th style="width:10%;">Cant.</th>
-                            <th style="width:50%;">Descripción del Producto</th>
+                            <th style="width:50%;">Descripción del Corte / Producto</th>
                             <th style="width:20%;" class="text-right">Precio Unitario</th>
                             <th style="width:20%;" class="text-right">Importe Subtotal</th>
                           </tr>
@@ -2739,7 +2768,7 @@ export default function App() {
                         <tbody>
                           ${ticketData.items.map(i => `
                             <tr>
-                              <td style="font-weight:bold;color:#4f46e5;">x${i.quantity}</td>
+                              <td style="font-weight:bold;color:#991b1b;">x${i.quantity}</td>
                               <td style="font-weight:600;color:#0f172a;">${i.nombre}</td>
                               <td class="text-right" style="font-family:monospace;">${currencySymbol}${i.price.toFixed(2)}</td>
                               <td class="text-right" style="font-weight:bold;font-family:monospace;color:#0f172a;">${currencySymbol}${(i.price * i.quantity).toFixed(2)}</td>
@@ -2750,9 +2779,9 @@ export default function App() {
 
                       <div class="summary-container">
                         <div class="qr-box">
-                          <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`Factura:${ticketData.nroFactura}|NIT:${ticketData.nit}|Total:${ticketData.total}|Fecha:${ticketData.fecha}`)}" />
+                          <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`CarniceriaRM|Factura:${ticketData.nroFactura}|NIT:${ticketData.nit}|Total:${ticketData.total}|Fecha:${ticketData.fecha}`)}" />
                           <div>
-                            <div style="font-weight:bold;color:#1e293b;font-size:11px;">DOCUMENTO OFICIAL</div>
+                            <div style="font-weight:bold;color:#1e293b;font-size:11px;">DOCUMENTO OFICIAL CARNICERÍA RM</div>
                             <div>Código de Control Electrónico</div>
                             <div style="color:#059669;font-weight:bold;margin-top:2px;">Transacción Registrada en Supabase</div>
                           </div>
@@ -2773,13 +2802,13 @@ export default function App() {
 
                       <div class="footer-note">
                         ESTA FACTURA CONTRIBUYE AL DESARROLLO DEL PAÍS. EL USO ILÍCITO SERÁ SANCIONADO PENALMENTE DE ACUERDO A LEY.<br/>
-                        Generado por el Sistema CompraVentaPro · Sincronizado en la nube
+                        Generado por el Sistema Carnicería RM · Calidad y Frescura Garantizada
                       </div>
                     </body></html>`);
                   win.document.close();
                   setTimeout(() => { win.focus(); win.print(); }, 400);
                 }}
-                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-md shadow-indigo-200"
+                className="px-5 py-2.5 bg-gradient-to-r from-red-700 via-rose-700 to-rose-800 hover:from-red-800 hover:to-rose-900 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-md shadow-rose-200"
               >
                 <Printer size={15} /> Imprimir Factura Formal a Color (Carta)
               </button>
