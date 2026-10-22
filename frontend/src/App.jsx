@@ -2674,135 +2674,217 @@ export default function App() {
                   const win = window.open('', '_blank', 'width=850,height=900');
                   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${ticketData.nroFactura} - Carnicería RM Factura</title>
                     <style>
-                      @page { size: letter; margin: 15mm; }
-                      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1e293b; margin: 0; padding: 25px; background: #fff; }
-                      .header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 3px solid #991b1b; }
-                      .brand-wrap { display: flex; align-items: center; gap: 15px; }
-                      .brand-name { font-size: 26px; font-weight: 900; color: #881337; margin: 0; letter-spacing: -0.5px; }
-                      .brand-sub { font-size: 11px; font-weight: 700; color: #b45309; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
-                      .brand-info { font-size: 11px; color: #475569; margin-top: 4px; }
-                      .invoice-badge { background: #fff1f2; border: 1.5px solid #fecdd3; padding: 12px 18px; border-radius: 12px; text-align: right; }
-                      .invoice-title { font-size: 12px; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 1px; }
-                      .invoice-num { font-size: 18px; font-weight: 900; color: #4c0519; font-family: monospace; }
-                      .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 25px 0; background: #fff5f5; border: 1px solid #fee2e2; padding: 16px; border-radius: 12px; font-size: 12px; }
+                      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; box-sizing: border-box; }
+                      @page { size: letter; margin: 12mm 15mm; }
+                      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1e293b; margin: 0; padding: 10px 0; background: #fff; }
+                      .invoice-wrapper { max-width: 800px; margin: 0 auto; }
+                      
+                      /* Cabecera idéntica al modal con fondo degradado Carmesí Gourmet */
+                      .header {
+                        background: linear-gradient(135deg, #991b1b 0%, #881337 55%, #4c0519 100%) !important;
+                        color: #ffffff !important;
+                        padding: 22px 26px;
+                        border-radius: 18px;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 20px;
+                        box-shadow: 0 4px 14px rgba(136, 19, 55, 0.25);
+                      }
+                      .brand-wrap { display: flex; align-items: center; gap: 16px; }
+                      .badge-tag {
+                        display: inline-block;
+                        background: rgba(255, 255, 255, 0.2) !important;
+                        color: #fef08a !important;
+                        padding: 3px 12px;
+                        border-radius: 9999px;
+                        font-size: 10px;
+                        font-weight: 800;
+                        letter-spacing: 1px;
+                        text-transform: uppercase;
+                        margin-bottom: 4px;
+                        border: 1px solid rgba(255,255,255,0.25);
+                      }
+                      .brand-name { font-size: 25px; font-weight: 900; color: #ffffff; margin: 0; letter-spacing: -0.5px; }
+                      .brand-sub { font-size: 12px; font-weight: 600; color: #ffe4e6; margin-top: 2px; }
+                      .brand-info { font-size: 10px; color: #fecdd3; margin-top: 4px; opacity: 0.95; }
+                      
+                      .invoice-badge-box {
+                        background: #ffffff !important;
+                        color: #4c0519 !important;
+                        font-family: monospace;
+                        font-size: 16px;
+                        font-weight: 900;
+                        padding: 9px 18px;
+                        border-radius: 12px;
+                        box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+                        border: 1px solid #ffe4e6;
+                        text-align: center;
+                      }
+                      .invoice-date { font-size: 11px; color: #fecdd3; margin-top: 6px; font-weight: 600; text-align: right; }
+                      
+                      /* Datos del comprador y de la emisión */
+                      .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background: #f8fafc !important; border: 1px solid #e2e8f0; padding: 15px 18px; border-radius: 16px; font-size: 12px; margin-bottom: 20px; }
                       .meta-col strong { color: #0f172a; }
-                      .meta-title { font-size: 10px; font-weight: 800; color: #991b1b; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.5px; }
-                      .table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }
-                      .table th { background: #991b1b; color: #ffffff; padding: 10px 14px; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; text-align: left; }
-                      .table th:first-child { border-radius: 8px 0 0 8px; }
-                      .table th:last-child { border-radius: 0 8px 8px 0; text-align: right; }
-                      .table td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; }
-                      .table tr:nth-child(even) { background: #fffbfb; }
+                      .meta-title { font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.8px; }
+                      
+                      /* Tabla de Artículos */
+                      .table-container { border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; margin-bottom: 20px; }
+                      .table { width: 100%; border-collapse: collapse; font-size: 12px; }
+                      .table th { background: #f1f5f9 !important; color: #475569; padding: 11px 16px; text-transform: uppercase; font-size: 10.5px; font-weight: 800; letter-spacing: 0.5px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+                      .table td { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; }
+                      .table tr:nth-child(even) { background: #fafafa !important; }
                       .text-right { text-align: right; }
-                      .summary-container { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 25px; }
-                      .qr-box { display: flex; align-items: center; gap: 12px; background: #fafaf9; padding: 12px; border-radius: 12px; border: 1px solid #e7e5e4; font-size: 10px; color: #57534e; }
-                      .qr-box img { width: 70px; height: 70px; border-radius: 6px; }
-                      .total-card { width: 270px; background: #881337; color: white; padding: 14px 18px; border-radius: 12px; font-size: 12px; box-shadow: 0 4px 6px -1px rgba(136, 19, 55, 0.2); }
-                      .total-card .line { display: flex; justify-content: space-between; margin-bottom: 6px; }
-                      .total-card .line.main { font-size: 18px; font-weight: 900; color: #fef08a; border-top: 1px solid rgba(255,255,255,0.25); padding-top: 8px; margin-top: 8px; }
-                      .footer-note { text-align: center; margin-top: 40px; font-size: 10px; color: #71717a; border-top: 1px dashed #cbd5e1; padding-top: 15px; }
+                      
+                      /* Resumen Financiero y QR */
+                      .summary-container { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 15px; }
+                      .qr-box { display: flex; align-items: center; gap: 12px; background: #f8fafc !important; padding: 12px 16px; border-radius: 14px; border: 1px solid #e2e8f0; font-size: 10px; color: #64748b; }
+                      .qr-box img { width: 68px; height: 68px; border-radius: 6px; background: #fff; padding: 2px; border: 1px solid #cbd5e1; }
+                      
+                      .total-card { width: 280px; font-size: 12px; }
+                      .total-card .line { display: flex; justify-content: space-between; margin-bottom: 5px; color: #475569; }
+                      .total-card .line strong { color: #0f172a; }
+                      .total-highlight {
+                        background: #eef2ff !important;
+                        border: 1.5px solid #c7d2fe;
+                        border-radius: 12px;
+                        padding: 10px 14px;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        color: #1e1b4b;
+                        font-weight: 900;
+                        font-size: 14px;
+                        margin-top: 8px;
+                      }
+                      .total-highlight span:last-child {
+                        font-size: 17px;
+                        color: #4338ca;
+                        font-family: monospace;
+                      }
+                      
+                      .footer-note { text-align: center; margin-top: 35px; font-size: 10px; color: #94a3b8; border-top: 1px dashed #cbd5e1; padding-top: 14px; font-style: italic; }
                     </style></head><body>
-                      <div class="header">
-                        <div class="brand-wrap">
-                          <!-- SVG ESCUDO OFICIAL CARNICERÍA RM -->
-                          <svg viewBox="0 0 100 100" width="75" height="75" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">
-                            <defs>
-                              <linearGradient id="pShieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stop-color="#b91c1c" />
-                                <stop offset="45%" stop-color="#881337" />
-                                <stop offset="100%" stop-color="#450a0a" />
-                              </linearGradient>
-                              <linearGradient id="pGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stop-color="#fef08a" />
-                                <stop offset="45%" stop-color="#f59e0b" />
-                                <stop offset="100%" stop-color="#b45309" />
-                              </linearGradient>
-                            </defs>
-                            <path d="M50 4 L88 18 C88 58 68 85 50 96 C32 85 12 58 12 18 Z" fill="url(#pShieldGrad)" stroke="url(#pGoldGrad)" stroke-width="4" />
-                            <path d="M50 11 L81 22 C81 54 64 77 50 87 C36 77 19 54 19 22 Z" fill="none" stroke="url(#pGoldGrad)" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.85" />
-                            <path d="M32 29 C34 23 40 21 44 25 C41 28 40 32 43 35 C46 33 54 33 57 35 C60 32 59 28 56 25 C60 21 66 23 68 29 C62 32 58 38 57 42 C55 44 45 44 43 42 C42 38 38 32 32 29 Z" fill="url(#pGoldGrad)" />
-                            <path d="M50 16 L51.2 19.5 L55 19.8 L52.2 22.2 L53 25.8 L50 23.8 L47 25.8 L47.8 22.2 L45 19.8 L48.8 19.5 Z" fill="url(#pGoldGrad)" />
-                            <circle cx="36" cy="20" r="2" fill="url(#pGoldGrad)" />
-                            <circle cx="64" cy="20" r="2" fill="url(#pGoldGrad)" />
-                            <text x="50" y="66" text-anchor="middle" fill="#ffffff" font-size="25" font-weight="900" font-family="Arial, sans-serif" letter-spacing="1.5">RM</text>
-                            <rect x="20" y="73.5" width="60" height="12" rx="6" fill="#18181b" stroke="url(#pGoldGrad)" stroke-width="1.2" />
-                            <text x="50" y="82.5" text-anchor="middle" fill="url(#pGoldGrad)" font-size="7" font-weight="900" letter-spacing="1.2" font-family="Arial, sans-serif">CARNICERÍA</text>
-                          </svg>
+                      <div class="invoice-wrapper">
+                        <!-- Cabecera Corporativa con degradado Carmesí Oficial -->
+                        <div class="header">
+                          <div class="brand-wrap">
+                            <!-- SVG ESCUDO OFICIAL CARNICERÍA RM -->
+                            <svg viewBox="0 0 100 100" width="76" height="76" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.35));">
+                              <defs>
+                                <linearGradient id="pShieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                  <stop offset="0%" stop-color="#b91c1c" />
+                                  <stop offset="45%" stop-color="#881337" />
+                                  <stop offset="100%" stop-color="#450a0a" />
+                                </linearGradient>
+                                <linearGradient id="pGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                  <stop offset="0%" stop-color="#fef08a" />
+                                  <stop offset="45%" stop-color="#f59e0b" />
+                                  <stop offset="100%" stop-color="#b45309" />
+                                </linearGradient>
+                              </defs>
+                              <path d="M50 4 L88 18 C88 58 68 85 50 96 C32 85 12 58 12 18 Z" fill="url(#pShieldGrad)" stroke="url(#pGoldGrad)" stroke-width="4" />
+                              <path d="M50 11 L81 22 C81 54 64 77 50 87 C36 77 19 54 19 22 Z" fill="none" stroke="url(#pGoldGrad)" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.85" />
+                              <path d="M32 29 C34 23 40 21 44 25 C41 28 40 32 43 35 C46 33 54 33 57 35 C60 32 59 28 56 25 C60 21 66 23 68 29 C62 32 58 38 57 42 C55 44 45 44 43 42 C42 38 38 32 32 29 Z" fill="url(#pGoldGrad)" />
+                              <path d="M50 16 L51.2 19.5 L55 19.8 L52.2 22.2 L53 25.8 L50 23.8 L47 25.8 L47.8 22.2 L45 19.8 L48.8 19.5 Z" fill="url(#pGoldGrad)" />
+                              <circle cx="36" cy="20" r="2" fill="url(#pGoldGrad)" />
+                              <circle cx="64" cy="20" r="2" fill="url(#pGoldGrad)" />
+                              <text x="50" y="66" text-anchor="middle" fill="#ffffff" font-size="25" font-weight="900" font-family="Arial, sans-serif" letter-spacing="1.5">RM</text>
+                              <rect x="20" y="73.5" width="60" height="12" rx="6" fill="#18181b" stroke="url(#pGoldGrad)" stroke-width="1.2" />
+                              <text x="50" y="82.5" text-anchor="middle" fill="url(#pGoldGrad)" font-size="7" font-weight="900" letter-spacing="1.2" font-family="Arial, sans-serif">CARNICERÍA</text>
+                            </svg>
+                            <div>
+                              <div class="badge-tag">FACTURA OFICIAL · CORTES SELECTOS</div>
+                              <h1 class="brand-name">Carnicería RM</h1>
+                              <div class="brand-sub">Res, Cerdo, Pollo y Embutidos Artesanales</div>
+                              <div class="brand-info">Casa Matriz: Av. Principal #1042 · La Paz - Bolivia · NIT: 1028374029 · Tel: +591 70000000</div>
+                            </div>
+                          </div>
                           <div>
-                            <h1 class="brand-name">Carnicería RM</h1>
-                            <div class="brand-sub">Cortes Selectos · Res, Cerdo, Pollo y Embutidos Artesanales</div>
-                            <div class="brand-info">Casa Matriz: Av. Principal #1042 · La Paz - Bolivia · NIT: 1028374029 · Tel: +591 70000000</div>
-                          </div>
-                        </div>
-                        <div class="invoice-badge">
-                          <div class="invoice-title">FACTURA / NOTA DE VENTA</div>
-                          <div class="invoice-num">${ticketData.nroFactura}</div>
-                          <div style="font-size:11px;color:#881337;margin-top:4px;font-weight:600;">Emisión: ${ticketData.fecha} · ${ticketData.hora}</div>
-                        </div>
-                      </div>
-
-                      <div class="meta-grid">
-                        <div class="meta-col">
-                          <div class="meta-title">DATOS DEL COMPRADOR</div>
-                          <div>Señor(es): <strong>${ticketData.cliente}</strong></div>
-                          <div>NIT / CI: <strong>${ticketData.nit}</strong></div>
-                          <div>Forma de Pago: <strong style="text-transform:capitalize;">${ticketData.metodoPago}</strong></div>
-                        </div>
-                        <div class="meta-col" style="text-align:right;">
-                          <div class="meta-title">DATOS DE LA TRANSACCIÓN</div>
-                          <div>Atendido por: <strong>${ticketData.cajero}</strong></div>
-                          <div>Estado: <strong style="color:#059669;">PAGADO Y CONFIRMADO</strong></div>
-                          <div>Moneda: <strong>${currencySymbol.trim() === 'Bs' ? 'Bolivianos (BOB)' : 'Dólares (USD)'}</strong></div>
-                        </div>
-                      </div>
-
-                      <table class="table">
-                        <thead>
-                          <tr>
-                            <th style="width:10%;">Cant.</th>
-                            <th style="width:50%;">Descripción del Corte / Producto</th>
-                            <th style="width:20%;" class="text-right">Precio Unitario</th>
-                            <th style="width:20%;" class="text-right">Importe Subtotal</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          ${ticketData.items.map(i => `
-                            <tr>
-                              <td style="font-weight:bold;color:#991b1b;">x${i.quantity}</td>
-                              <td style="font-weight:600;color:#0f172a;">${i.nombre}</td>
-                              <td class="text-right" style="font-family:monospace;">${currencySymbol}${i.price.toFixed(2)}</td>
-                              <td class="text-right" style="font-weight:bold;font-family:monospace;color:#0f172a;">${currencySymbol}${(i.price * i.quantity).toFixed(2)}</td>
-                            </tr>
-                          `).join('')}
-                        </tbody>
-                      </table>
-
-                      <div class="summary-container">
-                        <div class="qr-box">
-                          <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`CarniceriaRM|Factura:${ticketData.nroFactura}|NIT:${ticketData.nit}|Total:${ticketData.total}|Fecha:${ticketData.fecha}`)}" />
-                          <div>
-                            <div style="font-weight:bold;color:#1e293b;font-size:11px;">DOCUMENTO OFICIAL CARNICERÍA RM</div>
-                            <div>Código de Control Electrónico</div>
-                            <div style="color:#059669;font-weight:bold;margin-top:2px;">Transacción Registrada en Supabase</div>
+                            <div class="invoice-badge-box">
+                              ${ticketData.nroFactura}
+                            </div>
+                            <div class="invoice-date">
+                              ${ticketData.fecha} · ${ticketData.hora}
+                            </div>
                           </div>
                         </div>
 
-                        <div class="total-card">
-                          <div class="line"><span>Subtotal:</span><span>${currencySymbol}${ticketData.total.toFixed(2)}</span></div>
-                          ${ticketData.metodoPago === 'efectivo' ? `
-                            <div class="line"><span>Efectivo Recibido:</span><span>${currencySymbol}${ticketData.montoRecibido.toFixed(2)}</span></div>
-                            <div class="line" style="color:#86efac;font-weight:bold;"><span>Vuelto / Cambio:</span><span>${currencySymbol}${ticketData.vuelto.toFixed(2)}</span></div>
-                          ` : ''}
-                          <div class="line main">
-                            <span>TOTAL:</span>
-                            <span>${currencySymbol}${ticketData.total.toFixed(2)}</span>
+                        <!-- Datos del Comprador y Emisión -->
+                        <div class="meta-grid">
+                          <div class="meta-col">
+                            <div class="meta-title">DATOS DEL CLIENTE</div>
+                            <div style="font-size:14px; font-weight:bold; color:#0f172a; margin-bottom:2px;">${ticketData.cliente}</div>
+                            <div>NIT / CI: <strong style="font-family:monospace;">${ticketData.nit || 'S/N'}</strong></div>
+                          </div>
+                          <div class="meta-col" style="text-align:right;">
+                            <div class="meta-title">DATOS DE EMISIÓN</div>
+                            <div>Cajero: <strong>${ticketData.cajero}</strong></div>
+                            <div>Método de Pago: <strong style="text-transform:capitalize; color:#4338ca;">${ticketData.metodoPago === 'efectivo' ? 'Efectivo' : ticketData.metodoPago === 'qr' ? 'QR / Trans.' : 'Tarjeta'}</strong></div>
                           </div>
                         </div>
-                      </div>
 
-                      <div class="footer-note">
-                        ESTA FACTURA CONTRIBUYE AL DESARROLLO DEL PAÍS. EL USO ILÍCITO SERÁ SANCIONADO PENALMENTE DE ACUERDO A LEY.<br/>
-                        Generado por el Sistema Carnicería RM · Calidad y Frescura Garantizada
+                        <!-- Tabla de Cortes / Artículos -->
+                        <div class="table-container">
+                          <table class="table">
+                            <thead>
+                              <tr>
+                                <th style="width:12%;">CANT.</th>
+                                <th style="width:48%;">DESCRIPCIÓN</th>
+                                <th style="width:20%;" class="text-right">P. UNIT</th>
+                                <th style="width:20%;" class="text-right">SUBTOTAL</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              ${ticketData.items.map(i => `
+                                <tr>
+                                  <td style="font-weight:bold; color:#4338ca;">x${i.quantity}</td>
+                                  <td style="font-weight:600; color:#0f172a;">${i.nombre}</td>
+                                  <td class="text-right" style="font-family:monospace; color:#475569;">${currencySymbol}${i.price.toFixed(2)}</td>
+                                  <td class="text-right" style="font-weight:900; font-family:monospace; color:#0f172a;">${currencySymbol}${(i.price * i.quantity).toFixed(2)}</td>
+                                </tr>
+                              `).join('')}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <!-- Bloque de Totales y QR -->
+                        <div class="summary-container">
+                          <div class="qr-box">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`CarniceriaRM|Factura:${ticketData.nroFactura}|NIT:${ticketData.nit}|Total:${ticketData.total}|Fecha:${ticketData.fecha}`)}" />
+                            <div>
+                              <div style="font-weight:bold; color:#0f172a; font-size:11px;">Comprobante Válido</div>
+                              <div>Escanea para verificar</div>
+                              <div style="color:#059669; font-weight:bold; margin-top:3px;">✓ Venta Confirmada en Supabase</div>
+                            </div>
+                          </div>
+
+                          <div class="total-card">
+                            <div class="line">
+                              <span>Subtotal:</span>
+                              <span style="font-family:monospace; font-weight:bold;">${currencySymbol}${ticketData.total.toFixed(2)}</span>
+                            </div>
+                            ${ticketData.metodoPago === 'efectivo' ? `
+                              <div class="line">
+                                <span>Monto Recibido:</span>
+                                <span style="font-family:monospace;">${currencySymbol}${ticketData.montoRecibido.toFixed(2)}</span>
+                              </div>
+                              <div class="line" style="color:#059669; font-weight:bold;">
+                                <span>Vuelto / Cambio:</span>
+                                <span style="font-family:monospace; font-weight:900;">${currencySymbol}${ticketData.vuelto.toFixed(2)}</span>
+                              </div>
+                            ` : ''}
+                            <div class="total-highlight">
+                              <span>TOTAL A PAGAR:</span>
+                              <span>${currencySymbol}${ticketData.total.toFixed(2)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div class="footer-note">
+                          "Gracias por su preferencia · Esta nota de venta avala la entrega de mercadería"<br/>
+                          Carnicería RM · Cortes Selectos · Tradición y Calidad Garantizada
+                        </div>
                       </div>
                     </body></html>`);
                   win.document.close();
