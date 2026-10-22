@@ -246,6 +246,7 @@ export default function App() {
   useEffect(() => {
     if (token) {
       loadProducts();
+      loadVentas();
       if (isAdmin) {
         loadDashboard();
         loadVentasSemana();
@@ -1199,6 +1200,7 @@ export default function App() {
       setClienteNit('');
       showToast('¡Venta realizada con éxito!', 'success');
       loadProducts();
+      loadVentas();
       if (isAdmin) loadDashboard();
     } catch (err) {
       setSaleError(err.response?.data?.detail || 'Error al procesar la venta');
@@ -1614,20 +1616,18 @@ export default function App() {
             <span>Punto de Venta (POS)</span>
           </button>
 
-          {/* 4. Historial de Ventas (solo admin) */}
-          {isAdmin && (
-            <button 
-              onClick={() => { setActiveTab('ventas'); loadVentas(); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all duration-200 text-sm group ${
-                activeTab === 'ventas' 
-                  ? 'bg-gradient-to-r from-red-700 via-rose-700 to-rose-800 text-white shadow-lg shadow-rose-950/60 border-l-4 border-amber-400' 
-                  : 'text-slate-300 hover:text-white hover:bg-white/5 hover:translate-x-1.5'
-              }`}
-            >
-              <History size={18} className={activeTab === 'ventas' ? 'text-amber-300' : 'text-slate-400 group-hover:text-amber-300 transition-colors'} />
-              <span>Historial de Ventas</span>
-            </button>
-          )}
+          {/* 4. Historial de Ventas (Admin y Vendedor) */}
+          <button 
+            onClick={() => { setActiveTab('ventas'); loadVentas(); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all duration-200 text-sm group ${
+              activeTab === 'ventas' 
+                ? 'bg-gradient-to-r from-red-700 via-rose-700 to-rose-800 text-white shadow-lg shadow-rose-950/60 border-l-4 border-amber-400' 
+                : 'text-slate-300 hover:text-white hover:bg-white/5 hover:translate-x-1.5'
+            }`}
+          >
+            <History size={18} className={activeTab === 'ventas' ? 'text-amber-300' : 'text-slate-400 group-hover:text-amber-300 transition-colors'} />
+            <span>Historial de Ventas</span>
+          </button>
 
           {/* 5. Gestión de Usuarios (solo admin) */}
           {isAdmin && (
@@ -2529,10 +2529,18 @@ export default function App() {
             // 2. Filtro de vendedor
             let pasaVendedor = true;
             const rol = (v.usuario_rol || 'admin').toLowerCase();
+            const esMio = Boolean(
+              (v.usuario_id && user?.id && String(v.usuario_id) === String(user.id)) || 
+              (v.usuario_nombre && user?.nombre && v.usuario_nombre.trim().toLowerCase() === user.nombre.trim().toLowerCase()) ||
+              (v.usuario_nombre && user?.email && v.usuario_nombre.trim().toLowerCase() === user.email.trim().toLowerCase())
+            );
+
             if (vendedorFiltroVentas === 'admin') {
               pasaVendedor = (rol === 'admin');
             } else if (vendedorFiltroVentas === 'vendedor') {
               pasaVendedor = (rol === 'vendedor');
+            } else if (vendedorFiltroVentas === 'mis_ventas') {
+              pasaVendedor = esMio;
             }
 
             return pasaFecha && pasaVendedor;
@@ -2545,6 +2553,16 @@ export default function App() {
           const ventasHoyCount = ventas.filter(v => getFechaLocalStr(v.creado_en) === hoyStr).length;
           const ventasAdminCount = ventas.filter(v => (v.usuario_rol || 'admin').toLowerCase() === 'admin').length;
           const ventasVendedorCount = ventas.filter(v => (v.usuario_rol || '').toLowerCase() === 'vendedor').length;
+          const misVentasCount = ventas.filter(v => 
+            (v.usuario_id && user?.id && String(v.usuario_id) === String(user.id)) || 
+            (v.usuario_nombre && user?.nombre && v.usuario_nombre.trim().toLowerCase() === user.nombre.trim().toLowerCase()) ||
+            (v.usuario_nombre && user?.email && v.usuario_nombre.trim().toLowerCase() === user.email.trim().toLowerCase())
+          ).length;
+          const misVentasTotal = ventasFiltradas.filter(v => 
+            (v.usuario_id && user?.id && String(v.usuario_id) === String(user.id)) || 
+            (v.usuario_nombre && user?.nombre && v.usuario_nombre.trim().toLowerCase() === user.nombre.trim().toLowerCase()) ||
+            (v.usuario_nombre && user?.email && v.usuario_nombre.trim().toLowerCase() === user.email.trim().toLowerCase())
+          ).reduce((a, v) => a + v.total, 0);
 
           const fechaLabel = fechaFiltroVentas === 'hoy' 
             ? `Ventas de Hoy (${hoyStr})` 
@@ -2556,7 +2574,9 @@ export default function App() {
             ? 'Solo Administrador'
             : vendedorFiltroVentas === 'vendedor'
               ? 'Solo Vendedores'
-              : 'Todos los Vendedores';
+              : vendedorFiltroVentas === 'mis_ventas'
+                ? `Mis Ventas (${user?.nombre || user?.email || 'Vendedor'})`
+                : 'Todos los Vendedores';
 
           return (
             <div className="space-y-4">
@@ -2649,7 +2669,7 @@ export default function App() {
                   />
                 </div>
 
-                {/* 2. Filtro por Vendedor (Admin vs Vendedor) */}
+                {/* 2. Filtro por Vendedor (Admin vs Vendedor vs Mis Ventas) */}
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
                     <Users size={13} className="text-indigo-600" /> Vendedor:
@@ -2666,6 +2686,22 @@ export default function App() {
                     >
                       Todos ({ventas.length})
                     </button>
+
+                    {!isAdmin && (
+                      <button
+                        onClick={() => setVendedorFiltroVentas('mis_ventas')}
+                        className={`px-3 py-1.5 rounded-lg font-semibold transition flex items-center gap-1 ${
+                          vendedorFiltroVentas === 'mis_ventas'
+                            ? 'bg-emerald-700 text-white font-bold shadow-sm'
+                            : 'text-slate-600 hover:text-emerald-700'
+                        }`}
+                      >
+                        <span>🧑 Mis Ventas</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${vendedorFiltroVentas === 'mis_ventas' ? 'bg-white/25 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
+                          {misVentasCount}
+                        </span>
+                      </button>
+                    )}
 
                     <button
                       onClick={() => setVendedorFiltroVentas('admin')}
@@ -2725,6 +2761,11 @@ export default function App() {
                         {ventasFiltradas.map(v => {
                           const esAdmin = (v.usuario_rol || 'admin').toLowerCase() === 'admin';
                           const nombreVendedor = v.usuario_nombre || (esAdmin ? 'Administrador' : 'Vendedor');
+                          const esMio = Boolean(
+                            (v.usuario_id && user?.id && String(v.usuario_id) === String(user.id)) || 
+                            (v.usuario_nombre && user?.nombre && v.usuario_nombre.trim().toLowerCase() === user.nombre.trim().toLowerCase()) ||
+                            (v.usuario_nombre && user?.email && v.usuario_nombre.trim().toLowerCase() === user.email.trim().toLowerCase())
+                          );
 
                           return (
                             <tr key={v.id} className="hover:bg-slate-50 transition">
@@ -2746,6 +2787,9 @@ export default function App() {
                                   <span>{esAdmin ? '👑' : '🧑'}</span>
                                   <span>{nombreVendedor}</span>
                                   <span className="text-[10px] opacity-75 font-normal">({esAdmin ? 'Admin' : 'Vendedor'})</span>
+                                  {esMio && !isAdmin && (
+                                    <span className="bg-emerald-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider">Tú</span>
+                                  )}
                                 </span>
                               </td>
 
@@ -2869,7 +2913,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* Resumen Total con Desglose por Vendedor (Admin vs Vendedor) */}
+              {/* Resumen Total con Desglose por Vendedor */}
               {ventasFiltradas.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl text-center shadow-sm">
@@ -2878,18 +2922,26 @@ export default function App() {
                   </div>
 
                   <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-center shadow-sm">
-                    <p className="text-xs font-semibold text-emerald-600 uppercase">Total Recaudado</p>
+                    <p className="text-xs font-semibold text-emerald-600 uppercase">Total Recaudado (Filtro)</p>
                     <p className="text-2xl font-black text-emerald-700 mt-1 font-mono">{currencySymbol}{totalRecaudadoFiltrado.toFixed(2)}</p>
                   </div>
 
-                  <div className="p-4 bg-purple-50 border border-purple-100 rounded-2xl text-center shadow-sm">
-                    <p className="text-xs font-semibold text-purple-600 uppercase">👑 Vendido por Admin</p>
-                    <p className="text-xl font-black text-purple-700 mt-1 font-mono">{currencySymbol}{totalAdmin.toFixed(2)}</p>
-                    <p className="text-[10px] text-purple-500 mt-0.5">{ventasFiltradas.filter(v => (v.usuario_rol || 'admin').toLowerCase() === 'admin').length} ventas</p>
-                  </div>
+                  {!isAdmin ? (
+                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-center shadow-sm">
+                      <p className="text-xs font-semibold text-emerald-700 uppercase">🧑 Mis Ventas Realizadas</p>
+                      <p className="text-xl font-black text-emerald-800 mt-1 font-mono">{currencySymbol}{misVentasTotal.toFixed(2)}</p>
+                      <p className="text-[10px] text-emerald-600 mt-0.5">{misVentasCount} ventas registradas por ti</p>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-purple-50 border border-purple-100 rounded-2xl text-center shadow-sm">
+                      <p className="text-xs font-semibold text-purple-600 uppercase">👑 Vendido por Admin</p>
+                      <p className="text-xl font-black text-purple-700 mt-1 font-mono">{currencySymbol}{totalAdmin.toFixed(2)}</p>
+                      <p className="text-[10px] text-purple-500 mt-0.5">{ventasFiltradas.filter(v => (v.usuario_rol || 'admin').toLowerCase() === 'admin').length} ventas</p>
+                    </div>
+                  )}
 
                   <div className="p-4 bg-teal-50 border border-teal-100 rounded-2xl text-center shadow-sm">
-                    <p className="text-xs font-semibold text-teal-600 uppercase">🧑 Vendido por Vendedores</p>
+                    <p className="text-xs font-semibold text-teal-600 uppercase">🧑 Total Vendedores</p>
                     <p className="text-xl font-black text-teal-700 mt-1 font-mono">{currencySymbol}{totalVendedores.toFixed(2)}</p>
                     <p className="text-[10px] text-teal-500 mt-0.5">{ventasFiltradas.filter(v => (v.usuario_rol || '').toLowerCase() === 'vendedor').length} ventas</p>
                   </div>
