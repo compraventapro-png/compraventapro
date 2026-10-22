@@ -1556,54 +1556,76 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
-      {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-slate-900 text-white flex flex-col p-5 shadow-xl">
-        <div className="flex items-center gap-3 mb-8">
-          <LogoCarniceriaRM className="w-10 h-10 flex-shrink-0 drop-shadow-md" />
-          <div>
-            <h1 className="font-extrabold text-base leading-tight tracking-wide text-white">Carnicería RM</h1>
-            <span className="text-[11px] text-amber-400 font-semibold tracking-wider uppercase">Cortes Selectos</span>
+      {/* Sidebar — Concepto 1: Carmesí Gourmet & Black Edition */}
+      <aside className="w-full md:w-64 bg-gradient-to-b from-neutral-950 via-neutral-900 to-rose-950 text-white flex flex-col p-5 shadow-2xl border-r border-rose-950/40 relative overflow-hidden">
+        {/* Luz ambiental sutil decorativa en la esquina superior */}
+        <div className="absolute top-0 right-0 w-44 h-44 bg-rose-900/15 rounded-full blur-2xl pointer-events-none" />
+
+        {/* Tarjeta del Logotipo */}
+        <div className="relative z-10 flex items-center gap-3.5 mb-7 p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md shadow-inner">
+          <LogoCarniceriaRM className="w-11 h-11 flex-shrink-0 drop-shadow-lg" />
+          <div className="min-w-0">
+            <h1 className="font-black text-base leading-tight tracking-wide text-white truncate">Carnicería RM</h1>
+            <span className="text-[10px] text-amber-400 font-extrabold tracking-widest uppercase flex items-center gap-1 mt-0.5">
+              <Sparkles size={11} className="text-amber-400" /> CORTES SELECTOS
+            </span>
           </div>
         </div>
 
-        <nav className="flex-1 space-y-1">
+        <nav className="flex-1 space-y-1.5 relative z-10">
           {/* 1. Dashboard (solo admin) */}
           {isAdmin && (
             <button 
               onClick={() => { setActiveTab('dashboard'); loadVentasSemana(); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition text-sm ${activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all duration-200 text-sm group ${
+                activeTab === 'dashboard' 
+                  ? 'bg-gradient-to-r from-red-700 via-rose-700 to-rose-800 text-white shadow-lg shadow-rose-950/60 border-l-4 border-amber-400' 
+                  : 'text-slate-300 hover:text-white hover:bg-white/5 hover:translate-x-1.5'
+              }`}
             >
-              <LayoutDashboard size={18} />
-              Dashboard & KPIs
+              <LayoutDashboard size={18} className={activeTab === 'dashboard' ? 'text-amber-300' : 'text-slate-400 group-hover:text-amber-300 transition-colors'} />
+              <span>Dashboard & KPIs</span>
             </button>
           )}
 
           {/* 2. Catálogo / Inventario */}
           <button 
             onClick={() => setActiveTab('inventory')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition text-sm ${activeTab === 'inventory' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all duration-200 text-sm group ${
+              activeTab === 'inventory' 
+                ? 'bg-gradient-to-r from-red-700 via-rose-700 to-rose-800 text-white shadow-lg shadow-rose-950/60 border-l-4 border-amber-400' 
+                : 'text-slate-300 hover:text-white hover:bg-white/5 hover:translate-x-1.5'
+            }`}
           >
-            <Package size={18} />
-            Inventario / Catálogo
+            <Package size={18} className={activeTab === 'inventory' ? 'text-amber-300' : 'text-slate-400 group-hover:text-amber-300 transition-colors'} />
+            <span>Inventario / Catálogo</span>
           </button>
 
           {/* 3. Punto de Venta (POS) */}
           <button 
             onClick={() => setActiveTab('pos')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition text-sm ${activeTab === 'pos' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all duration-200 text-sm group ${
+              activeTab === 'pos' 
+                ? 'bg-gradient-to-r from-red-700 via-rose-700 to-rose-800 text-white shadow-lg shadow-rose-950/60 border-l-4 border-amber-400' 
+                : 'text-slate-300 hover:text-white hover:bg-white/5 hover:translate-x-1.5'
+            }`}
           >
-            <ShoppingCart size={18} />
-            Punto de Venta (POS)
+            <ShoppingCart size={18} className={activeTab === 'pos' ? 'text-amber-300' : 'text-slate-400 group-hover:text-amber-300 transition-colors'} />
+            <span>Punto de Venta (POS)</span>
           </button>
 
           {/* 4. Historial de Ventas (solo admin) */}
           {isAdmin && (
             <button 
               onClick={() => { setActiveTab('ventas'); loadVentas(); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition text-sm ${activeTab === 'ventas' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all duration-200 text-sm group ${
+                activeTab === 'ventas' 
+                  ? 'bg-gradient-to-r from-red-700 via-rose-700 to-rose-800 text-white shadow-lg shadow-rose-950/60 border-l-4 border-amber-400' 
+                  : 'text-slate-300 hover:text-white hover:bg-white/5 hover:translate-x-1.5'
+              }`}
             >
-              <History size={18} />
-              Historial de Ventas
+              <History size={18} className={activeTab === 'ventas' ? 'text-amber-300' : 'text-slate-400 group-hover:text-amber-300 transition-colors'} />
+              <span>Historial de Ventas</span>
             </button>
           )}
 
@@ -1611,38 +1633,53 @@ export default function App() {
           {isAdmin && (
             <button 
               onClick={() => { setActiveTab('usuarios'); loadUsuarios(); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition text-sm ${activeTab === 'usuarios' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all duration-200 text-sm group ${
+                activeTab === 'usuarios' 
+                  ? 'bg-gradient-to-r from-red-700 via-rose-700 to-rose-800 text-white shadow-lg shadow-rose-950/60 border-l-4 border-amber-400' 
+                  : 'text-slate-300 hover:text-white hover:bg-white/5 hover:translate-x-1.5'
+              }`}
             >
-              <Users size={18} />
-              Gestión de Usuarios
+              <Users size={18} className={activeTab === 'usuarios' ? 'text-amber-300' : 'text-slate-400 group-hover:text-amber-300 transition-colors'} />
+              <span>Gestión de Usuarios</span>
             </button>
           )}
         </nav>
 
-        <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${isAdmin ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}>
-              {isAdmin ? 'ADMIN' : 'VENDEDOR'}
-            </span>
-            <span className="text-xs text-slate-300 truncate">{user?.nombre || user?.email}</span>
+        {/* Tarjeta del Usuario Inferior */}
+        <div className="pt-4 border-t border-white/10 relative z-10">
+          <div className="p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md flex items-center justify-between shadow-inner">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
+                isAdmin 
+                  ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' 
+                  : 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30'
+              }`}>
+                {isAdmin ? 'ADMIN' : 'VENDEDOR'}
+              </span>
+              <span className="text-xs text-white/90 font-semibold truncate">{user?.nombre || user?.email}</span>
+            </div>
+            <button 
+              onClick={handleLogout} 
+              title="Cerrar sesión" 
+              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
+            >
+              <LogOut size={17} />
+            </button>
           </div>
-          <button onClick={handleLogout} title="Cerrar sesión" className="p-2 text-slate-400 hover:text-rose-400 transition">
-            <LogOut size={18} />
-          </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto">
+      <main className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto bg-slate-50/90">
         {/* Encabezado Superior con Título del Panel y Fecha Actual */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 mb-5 border-b border-slate-200/80 gap-3">
           <div>
             <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              {activeTab === 'dashboard' && <><LayoutDashboard className="text-indigo-600" size={22} /> Dashboard de Métricas & KPIs</>}
-              {activeTab === 'inventory' && <><Package className="text-indigo-600" size={22} /> Catálogo de Inventario</>}
-              {activeTab === 'pos' && <><ShoppingCart className="text-indigo-600" size={22} /> Punto de Venta (POS)</>}
-              {activeTab === 'ventas' && <><History className="text-indigo-600" size={22} /> Historial y Reporte de Ventas</>}
-              {activeTab === 'usuarios' && <><Users className="text-indigo-600" size={22} /> Gestión y Control de Usuarios</>}
+              {activeTab === 'dashboard' && <><LayoutDashboard className="text-rose-700" size={22} /> Dashboard de Métricas & KPIs</>}
+              {activeTab === 'inventory' && <><Package className="text-rose-700" size={22} /> Catálogo de Inventario</>}
+              {activeTab === 'pos' && <><ShoppingCart className="text-rose-700" size={22} /> Punto de Venta (POS)</>}
+              {activeTab === 'ventas' && <><History className="text-rose-700" size={22} /> Historial y Reporte de Ventas</>}
+              {activeTab === 'usuarios' && <><Users className="text-rose-700" size={22} /> Gestión y Control de Usuarios</>}
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
               {activeTab === 'dashboard' && 'Rendimiento general, KPI financieros y estadísticas en tiempo real'}
@@ -1655,7 +1692,7 @@ export default function App() {
 
           <div className="flex items-center gap-2">
             <div className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold shadow-sm">
-              <Calendar size={15} className="text-indigo-600" />
+              <Calendar size={15} className="text-rose-700" />
               <span>{fechaActualTexto}</span>
             </div>
           </div>
