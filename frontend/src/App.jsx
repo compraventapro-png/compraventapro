@@ -2206,25 +2206,92 @@ export default function App() {
               </button>
             </div>
 
-            {/* KPI Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                { label: 'Productos Activos',    value: dashboardData?.total_productos ?? products.length, color: 'blue',    Icon: Package },
-                { label: 'Alertas Stock Mínimo', value: dashboardData?.productos_stock_bajo ?? 0,          color: 'amber',   Icon: AlertTriangle },
-                { label: `Ventas Hoy (${currencySymbol.trim()})`, value: `${currencySymbol}${(dashboardData?.total_ventas_hoy ?? 0).toFixed(2)}`, color: 'emerald', Icon: TrendingUp },
-                { label: 'Transacciones Hoy',    value: dashboardData?.num_ventas_hoy ?? 0,                color: 'indigo',  Icon: DollarSign },
-              ].map(({ label, value, color, Icon }) => (
-                <div key={label} className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-slate-500 uppercase">{label}</p>
-                    <p className={`text-2xl font-black mt-1 text-${color}-600`}>{value}</p>
-                  </div>
-                  <div className={`p-3 bg-${color}-50 text-${color}-600 rounded-xl`}>
-                    <Icon size={24} />
-                  </div>
+            {/* KPI Cards con Fondo de Color Completo y Elegante */}
+            {(() => {
+              const hoyStrLocal = getFechaLocalStr(new Date());
+              const ventasHoyDirectas = ventas.filter(v => getFechaLocalStr(v.creado_en) === hoyStrLocal);
+              const totalVentasHoyDirecto = ventasHoyDirectas.reduce((acc, v) => acc + v.total, 0);
+              const numVentasHoyDirecto = ventasHoyDirectas.length;
+
+              const totalVentasHoyFinal = (dashboardData?.total_ventas_hoy && dashboardData.total_ventas_hoy > 0)
+                ? dashboardData.total_ventas_hoy
+                : totalVentasHoyDirecto;
+
+              const numVentasHoyFinal = (dashboardData?.num_ventas_hoy && dashboardData.num_ventas_hoy > 0)
+                ? dashboardData.num_ventas_hoy
+                : numVentasHoyDirecto;
+
+              const kpis = [
+                {
+                  id: 'productos',
+                  label: 'Productos Activos',
+                  value: dashboardData?.total_productos ?? products.length,
+                  sublabel: 'En catálogo de carnicería',
+                  bgGradient: 'bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-900',
+                  shadowColor: 'shadow-blue-900/25',
+                  borderColor: 'border-blue-500/40',
+                  iconBg: 'bg-white/20 text-white border-white/25',
+                  Icon: Package,
+                },
+                {
+                  id: 'stock',
+                  label: 'Alertas Stock Mínimo',
+                  value: dashboardData?.productos_stock_bajo ?? products.filter(p => p.stock_actual <= p.stock_minimo).length,
+                  sublabel: (dashboardData?.productos_stock_bajo ?? 0) > 0 ? 'Requieren abastecer' : 'Stock en niveles óptimos',
+                  bgGradient: 'bg-gradient-to-br from-amber-500 via-amber-600 to-orange-700',
+                  shadowColor: 'shadow-amber-900/25',
+                  borderColor: 'border-amber-400/40',
+                  iconBg: 'bg-white/20 text-white border-white/25',
+                  Icon: AlertTriangle,
+                },
+                {
+                  id: 'ventas',
+                  label: `Ventas Hoy (${currencySymbol.trim()})`,
+                  value: `${currencySymbol}${totalVentasHoyFinal.toFixed(2)}`,
+                  sublabel: 'Recaudación del día',
+                  bgGradient: 'bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-900',
+                  shadowColor: 'shadow-emerald-950/25',
+                  borderColor: 'border-emerald-500/40',
+                  iconBg: 'bg-white/20 text-white border-white/25',
+                  Icon: TrendingUp,
+                },
+                {
+                  id: 'transacciones',
+                  label: 'Transacciones Hoy',
+                  value: numVentasHoyFinal,
+                  sublabel: 'Tickets y notas emitidas',
+                  bgGradient: 'bg-gradient-to-br from-red-700 via-rose-800 to-neutral-950',
+                  shadowColor: 'shadow-rose-950/30',
+                  borderColor: 'border-rose-600/40',
+                  iconBg: 'bg-white/20 text-amber-300 border-white/25',
+                  Icon: DollarSign,
+                },
+              ];
+
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {kpis.map(({ id, label, value, sublabel, bgGradient, shadowColor, borderColor, iconBg, Icon }) => (
+                    <div 
+                      key={id} 
+                      className={`relative overflow-hidden p-5 rounded-2xl ${bgGradient} ${borderColor} border shadow-lg ${shadowColor} flex items-center justify-between transition-all duration-200 hover:scale-[1.02]`}
+                    >
+                      {/* Círculo de luz decorativo de fondo */}
+                      <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none" />
+
+                      <div className="relative z-10">
+                        <p className="text-[11px] font-bold text-white/80 uppercase tracking-wider">{label}</p>
+                        <p className="text-3xl font-black text-white mt-1 tracking-tight drop-shadow-sm font-mono">{value}</p>
+                        <p className="text-[10px] text-white/70 font-medium mt-1">{sublabel}</p>
+                      </div>
+
+                      <div className={`relative z-10 w-12 h-12 rounded-2xl flex items-center justify-center backdrop-blur-md border ${iconBg} shadow-sm flex-shrink-0 ml-3`}>
+                        <Icon size={24} />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              );
+            })()}
 
             {/* Gráfica de ventas últimos 7 días */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
