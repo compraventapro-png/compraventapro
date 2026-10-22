@@ -157,11 +157,26 @@ export default function App() {
     }
   }, [toast]);
 
+  // Función auxiliar de fecha local YYYY-MM-DD
+  const getFechaLocalStr = (fecha = new Date()) => {
+    try {
+      const d = typeof fecha === 'string' ? new Date(fecha) : fecha;
+      if (isNaN(d.getTime())) return '';
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    } catch (e) {
+      return '';
+    }
+  };
+
   // Historial de ventas
   const [ventas, setVentas] = useState([]);
   const [loadingVentas, setLoadingVentas] = useState(false);
   const [ventaDetalle, setVentaDetalle] = useState(null);
-  const [fechaFiltroVentas, setFechaFiltroVentas] = useState(''); // '' = todas, o 'YYYY-MM-DD'
+  const [fechaFiltroVentas, setFechaFiltroVentas] = useState('hoy'); // 'hoy' por defecto
+  const [vendedorFiltroVentas, setVendedorFiltroVentas] = useState('todos'); // 'todos', 'admin', 'vendedor'
   const [ventaEliminarConfirm, setVentaEliminarConfirm] = useState(null);
 
   // Gestión de usuarios
@@ -295,8 +310,245 @@ export default function App() {
     }
   };
 
-  // Exportar reporte de ventas filtradas a PDF
-  const exportarReporteVentasPDF = (ventasFiltradas, fechaLabel) => {
+  // Imprimir Reporte de Ventas Formal a Color (Hoja Carta / Apaisada) con Cabecera Carmesí
+  const imprimirReporteVentasFormal = (ventasFiltradas, fechaLabel, vendedorLabel) => {
+    if (!ventasFiltradas || ventasFiltradas.length === 0) {
+      showToast('No hay ventas para imprimir en este rango', 'warning');
+      return;
+    }
+    const totalRecaudado = ventasFiltradas.reduce((a, v) => a + v.total, 0);
+    const totalAdmin = ventasFiltradas.filter(v => (v.usuario_rol || 'admin').toLowerCase() === 'admin').reduce((a, v) => a + v.total, 0);
+    const totalVendedores = ventasFiltradas.filter(v => (v.usuario_rol || '').toLowerCase() === 'vendedor').reduce((a, v) => a + v.total, 0);
+
+    const win = window.open('', '_blank', 'width=950,height=900');
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Reporte de Ventas - Carnicería RM</title>
+      <style>
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; box-sizing: border-box; }
+        @page { size: letter; margin: 12mm 15mm; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1e293b; margin: 0; padding: 10px 0; background: #fff; }
+        .report-wrapper { max-width: 820px; margin: 0 auto; }
+        
+        .header {
+          background: linear-gradient(135deg, #991b1b 0%, #881337 55%, #4c0519 100%) !important;
+          color: #ffffff !important;
+          padding: 22px 26px;
+          border-radius: 18px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 18px;
+          box-shadow: 0 4px 14px rgba(136, 19, 55, 0.25);
+        }
+        .brand-wrap { display: flex; align-items: center; gap: 16px; }
+        .badge-tag {
+          display: inline-block;
+          background: rgba(255, 255, 255, 0.2) !important;
+          color: #fef08a !important;
+          padding: 3px 12px;
+          border-radius: 9999px;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          margin-bottom: 4px;
+          border: 1px solid rgba(255,255,255,0.25);
+        }
+        .brand-name { font-size: 25px; font-weight: 900; color: #ffffff; margin: 0; letter-spacing: -0.5px; }
+        .brand-sub { font-size: 12px; font-weight: 600; color: #ffe4e6; margin-top: 2px; }
+        
+        .report-badge-box {
+          background: #ffffff !important;
+          color: #4c0519 !important;
+          font-family: monospace;
+          font-size: 14px;
+          font-weight: 900;
+          padding: 8px 16px;
+          border-radius: 12px;
+          box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+          border: 1px solid #ffe4e6;
+          text-align: center;
+        }
+        .report-date { font-size: 11px; color: #fecdd3; margin-top: 5px; font-weight: 600; text-align: right; }
+        
+        .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #f8fafc !important; border: 1px solid #e2e8f0; padding: 14px 18px; border-radius: 14px; font-size: 11px; margin-bottom: 18px; }
+        .meta-col strong { color: #0f172a; }
+        .meta-title { font-size: 9.5px; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.8px; }
+
+        .table-container { border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; margin-bottom: 18px; }
+        .table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+        .table th { background: #f1f5f9 !important; color: #475569; padding: 10px 12px; text-transform: uppercase; font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-align: left; border-bottom: 1px solid #cbd5e1; }
+        .table td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; }
+        .table tr:nth-child(even) { background: #fafafa !important; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+
+        .summary-container { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 15px; gap: 15px; }
+        .qr-box { display: flex; align-items: center; gap: 12px; background: #f8fafc !important; padding: 12px 16px; border-radius: 14px; border: 1px solid #e2e8f0; font-size: 10px; color: #64748b; }
+        .qr-box img { width: 65px; height: 65px; border-radius: 6px; background: #fff; padding: 2px; border: 1px solid #cbd5e1; }
+        
+        .totals-card { width: 340px; background: #f8fafc !important; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 18px; font-size: 11.5px; }
+        .totals-card .line { display: flex; justify-content: space-between; margin-bottom: 4px; color: #475569; }
+        .totals-card .line.main {
+          background: #eef2ff !important;
+          border: 1.5px solid #c7d2fe;
+          border-radius: 10px;
+          padding: 8px 12px;
+          color: #1e1b4b;
+          font-weight: 900;
+          font-size: 13.5px;
+          margin-top: 6px;
+        }
+        .totals-card .line.main span:last-child {
+          font-size: 16px;
+          color: #4338ca;
+          font-family: monospace;
+        }
+        
+        .footer-note { text-align: center; margin-top: 25px; font-size: 10px; color: #94a3b8; border-top: 1px dashed #cbd5e1; padding-top: 12px; font-style: italic; }
+      </style></head><body>
+        <div class="report-wrapper">
+          <div class="header">
+            <div class="brand-wrap">
+              <svg viewBox="0 0 100 100" width="70" height="70" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.35));">
+                <defs>
+                  <linearGradient id="rShieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#b91c1c" />
+                    <stop offset="45%" stop-color="#881337" />
+                    <stop offset="100%" stop-color="#450a0a" />
+                  </linearGradient>
+                  <linearGradient id="rGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#fef08a" />
+                    <stop offset="45%" stop-color="#f59e0b" />
+                    <stop offset="100%" stop-color="#b45309" />
+                  </linearGradient>
+                </defs>
+                <path d="M50 4 L88 18 C88 58 68 85 50 96 C32 85 12 58 12 18 Z" fill="url(#rShieldGrad)" stroke="url(#rGoldGrad)" stroke-width="4" />
+                <path d="M50 11 L81 22 C81 54 64 77 50 87 C36 77 19 54 19 22 Z" fill="none" stroke="url(#rGoldGrad)" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.85" />
+                <path d="M32 29 C34 23 40 21 44 25 C41 28 40 32 43 35 C46 33 54 33 57 35 C60 32 59 28 56 25 C60 21 66 23 68 29 C62 32 58 38 57 42 C55 44 45 44 43 42 C42 38 38 32 32 29 Z" fill="url(#rGoldGrad)" />
+                <path d="M50 16 L51.2 19.5 L55 19.8 L52.2 22.2 L53 25.8 L50 23.8 L47 25.8 L47.8 22.2 L45 19.8 L48.8 19.5 Z" fill="url(#rGoldGrad)" />
+                <circle cx="36" cy="20" r="2" fill="url(#rGoldGrad)" />
+                <circle cx="64" cy="20" r="2" fill="url(#rGoldGrad)" />
+                <text x="50" y="66" text-anchor="middle" fill="#ffffff" font-size="25" font-weight="900" font-family="Arial, sans-serif" letter-spacing="1.5">RM</text>
+                <rect x="20" y="73.5" width="60" height="12" rx="6" fill="#18181b" stroke="url(#rGoldGrad)" stroke-width="1.2" />
+                <text x="50" y="82.5" text-anchor="middle" fill="url(#rGoldGrad)" font-size="7" font-weight="900" letter-spacing="1.2" font-family="Arial, sans-serif">CARNICERÍA</text>
+              </svg>
+              <div>
+                <div class="badge-tag">REPORTE OFICIAL DE VENTAS · CORTES SELECTOS</div>
+                <h1 class="brand-name">Carnicería RM</h1>
+                <div class="brand-sub">Control y Balance de Ventas en Tiempo Real</div>
+              </div>
+            </div>
+            <div>
+              <div class="report-badge-box">
+                ${ventasFiltradas.length} VENTAS
+              </div>
+              <div class="report-date">
+                ${new Date().toLocaleDateString('es-ES')} ${new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-col">
+              <div class="meta-title">CRITERIOS DE FILTRADO</div>
+              <div>Período: <strong>${fechaLabel || 'Todas las fechas'}</strong></div>
+              <div>Vendedor: <strong>${vendedorLabel || 'Todos los vendedores'}</strong></div>
+            </div>
+            <div class="meta-col" style="text-align:right;">
+              <div class="meta-title">DATOS DE AUDITORÍA</div>
+              <div>Emitido por: <strong>${user?.nombre || user?.email} (${(user?.rol || 'admin').toUpperCase()})</strong></div>
+              <div>Moneda: <strong>${currencySymbol.trim() === 'Bs' ? 'Bolivianos (BOB)' : 'Dólares (USD)'}</strong></div>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th style="width:6%;" class="text-center">N°</th>
+                  <th style="width:10%;">VENTA #</th>
+                  <th style="width:16%;">FECHA / HORA</th>
+                  <th style="width:18%;">VENDIDO POR</th>
+                  <th style="width:35%;">CORTES / PRODUCTOS COMPRADOS</th>
+                  <th style="width:15%;" class="text-right">TOTAL</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${ventasFiltradas.map((v, idx) => {
+                  const itemsText = (v.detalles || []).map(d => {
+                    const prod = products.find(p => p.id === d.producto_id);
+                    const nombre = d.producto?.nombre || prod?.nombre || `Item #${d.producto_id}`;
+                    return `<strong>${d.cantidad}x</strong> ${nombre}`;
+                  }).join(', ');
+                  const esAdmin = (v.usuario_rol || 'admin').toLowerCase() === 'admin';
+                  const nombreVendedor = v.usuario_nombre || (esAdmin ? 'Administrador' : 'Vendedor');
+
+                  return `
+                    <tr>
+                      <td class="text-center" style="color:#64748b; font-weight:bold;">${idx + 1}</td>
+                      <td style="font-family:monospace; font-weight:bold; color:#0f172a;">#${v.id}</td>
+                      <td style="color:#475569;">
+                        ${new Date(v.creado_en).toLocaleDateString('es-ES')} <small style="color:#94a3b8;">${new Date(v.creado_en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</small>
+                      </td>
+                      <td>
+                        <span style="display:inline-block; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:bold; ${esAdmin ? 'background:#ede9fe; color:#5b21b6;' : 'background:#dcfce7; color:#166534;'}">
+                          ${esAdmin ? '👑' : '🧑'} ${nombreVendedor}
+                        </span>
+                      </td>
+                      <td style="color:#334155;">${itemsText || 'Venta rápida'}</td>
+                      <td class="text-right" style="font-weight:900; font-family:monospace; color:#0f172a;">${currencySymbol}${v.total.toFixed(2)}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="summary-container">
+            <div class="qr-box">
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`CarniceriaRM|ReporteVentas|Total:${totalRecaudado}|Ventas:${ventasFiltradas.length}|Fecha:${new Date().toISOString()}`)}" />
+              <div>
+                <div style="font-weight:bold; color:#0f172a; font-size:11px;">REPORTE OFICIAL CERTIFICADO</div>
+                <div>Carnicería RM · Sistema POS</div>
+                <div style="color:#059669; font-weight:bold; margin-top:2px;">✓ Sincronizado con Supabase</div>
+              </div>
+            </div>
+
+            <div class="totals-card">
+              <div class="line">
+                <span>Transacciones realizadas:</span>
+                <strong>${ventasFiltradas.length}</strong>
+              </div>
+              <div class="line">
+                <span>Vendido por Admin:</span>
+                <strong style="color:#5b21b6;">${currencySymbol}${totalAdmin.toFixed(2)}</strong>
+              </div>
+              <div class="line">
+                <span>Vendido por Vendedores:</span>
+                <strong style="color:#166534;">${currencySymbol}${totalVendedores.toFixed(2)}</strong>
+              </div>
+              <div class="line">
+                <span>Ticket promedio:</span>
+                <strong>${currencySymbol}${(totalRecaudado / (ventasFiltradas.length || 1)).toFixed(2)}</strong>
+              </div>
+              <div class="line main">
+                <span>TOTAL RECAUDADO:</span>
+                <span>${currencySymbol}${totalRecaudado.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="footer-note">
+            Documento de control interno generado automáticamente por el Sistema Carnicería RM · Cortes Selectos
+          </div>
+        </div>
+      </body></html>`);
+    win.document.close();
+    setTimeout(() => { win.focus(); win.print(); }, 400);
+  };
+
+  // Exportar reporte de ventas filtradas a PDF (descarga de archivo)
+  const exportarReporteVentasPDF = (ventasFiltradas, fechaLabel, vendedorLabel) => {
     if (!ventasFiltradas || ventasFiltradas.length === 0) {
       showToast('No hay ventas para exportar en este rango', 'warning');
       return;
@@ -313,7 +565,7 @@ export default function App() {
     doc.text('Carnicería RM — Reporte Oficial de Ventas', 14, 13);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Cortes Selectos · Filtro: ${fechaLabel || 'Todas las ventas'} · Moneda: ${currencySymbol.trim()}`, 14, 21);
+    doc.text(`Cortes Selectos · Período: ${fechaLabel || 'Todas'} · Vendedor: ${vendedorLabel || 'Todos'} · Moneda: ${currencySymbol.trim()}`, 14, 21);
     doc.text(`Emitido: ${new Date().toLocaleDateString('es-ES')} ${new Date().toLocaleTimeString('es-ES')}`, pageWidth - 14, 21, { align: 'right' });
 
     // Filas para la tabla
@@ -324,10 +576,14 @@ export default function App() {
         return `${d.cantidad}x ${nombre}`;
       }).join(', ');
 
+      const esAdmin = (v.usuario_rol || 'admin').toLowerCase() === 'admin';
+      const vendedorStr = v.usuario_nombre || (esAdmin ? 'Admin' : 'Vendedor');
+
       return [
         (idx + 1).toString(),
         `#${v.id}`,
         `${new Date(v.creado_en).toLocaleDateString('es-ES')} ${new Date(v.creado_en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`,
+        vendedorStr,
         itemsText || 'Venta registrada',
         `${currencySymbol}${v.total.toFixed(2)}`
       ];
@@ -335,7 +591,7 @@ export default function App() {
 
     autoTable(doc, {
       startY: 34,
-      head: [['N°', 'ID', 'Fecha / Hora', 'Cortes / Productos Comprados', 'Total']],
+      head: [['N°', 'ID', 'Fecha / Hora', 'Vendedor', 'Cortes / Productos Comprados', 'Total']],
       body: rows,
       theme: 'grid',
       headStyles: {
@@ -346,25 +602,29 @@ export default function App() {
       },
       styles: { fontSize: 8, valign: 'middle' },
       columnStyles: {
-        0: { halign: 'center', cellWidth: 10 },
-        1: { halign: 'center', fontStyle: 'bold', cellWidth: 16 },
-        2: { cellWidth: 35 },
-        3: { cellWidth: 95 },
-        4: { halign: 'right', fontStyle: 'bold', cellWidth: 28 },
+        0: { halign: 'center', cellWidth: 8 },
+        1: { halign: 'center', fontStyle: 'bold', cellWidth: 14 },
+        2: { cellWidth: 32 },
+        3: { cellWidth: 26 },
+        4: { cellWidth: 78 },
+        5: { halign: 'right', fontStyle: 'bold', cellWidth: 26 },
       }
     });
 
-    const finalY = doc.lastAutoTable.finalY + 10;
+    const finalY = doc.lastAutoTable.finalY + 8;
     const totalRecaudado = ventasFiltradas.reduce((a, v) => a + v.total, 0);
+    const totalAdmin = ventasFiltradas.filter(v => (v.usuario_rol || 'admin').toLowerCase() === 'admin').reduce((a, v) => a + v.total, 0);
+    const totalVendedores = ventasFiltradas.filter(v => (v.usuario_rol || '').toLowerCase() === 'vendedor').reduce((a, v) => a + v.total, 0);
 
     doc.setFillColor(248, 250, 252);
-    doc.roundedRect(14, finalY, pageWidth - 28, 20, 3, 3, 'F');
+    doc.roundedRect(14, finalY, pageWidth - 28, 24, 3, 3, 'F');
     doc.setTextColor(30, 41, 59);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.text('Resumen del Período:', 18, finalY + 8);
+    doc.text('Resumen del Período:', 18, finalY + 7);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Total de Transacciones: ${ventasFiltradas.length}`, 18, finalY + 14);
+    doc.text(`Transacciones: ${ventasFiltradas.length}`, 18, finalY + 14);
+    doc.text(`Admin: ${currencySymbol}${totalAdmin.toFixed(2)} · Vendedores: ${currencySymbol}${totalVendedores.toFixed(2)}`, 18, finalY + 20);
     doc.setFont('helvetica', 'bold');
     doc.text(`TOTAL RECAUDADO: ${currencySymbol}${totalRecaudado.toFixed(2)}`, pageWidth - 18, finalY + 14, { align: 'right' });
 
@@ -1891,90 +2151,200 @@ export default function App() {
 
         {/* TAB: HISTORIAL DE VENTAS */}
         {activeTab === 'ventas' && (() => {
-          // Filtrado de ventas por fecha si está seleccionado
-          const hoyStr = new Date().toISOString().slice(0, 10);
+          // Filtrado preciso con fecha local
+          const hoyStr = getFechaLocalStr(new Date());
+
           const ventasFiltradas = ventas.filter(v => {
-            if (!fechaFiltroVentas) return true;
+            // 1. Filtro de fecha
+            let pasaFecha = true;
+            const fechaVenta = getFechaLocalStr(v.creado_en);
             if (fechaFiltroVentas === 'hoy') {
-              return v.creado_en.slice(0, 10) === hoyStr;
+              pasaFecha = (fechaVenta === hoyStr);
+            } else if (fechaFiltroVentas) {
+              pasaFecha = (fechaVenta === fechaFiltroVentas);
             }
-            return v.creado_en.slice(0, 10) === fechaFiltroVentas;
+
+            // 2. Filtro de vendedor
+            let pasaVendedor = true;
+            const rol = (v.usuario_rol || 'admin').toLowerCase();
+            if (vendedorFiltroVentas === 'admin') {
+              pasaVendedor = (rol === 'admin');
+            } else if (vendedorFiltroVentas === 'vendedor') {
+              pasaVendedor = (rol === 'vendedor');
+            }
+
+            return pasaFecha && pasaVendedor;
           });
 
           const totalRecaudadoFiltrado = ventasFiltradas.reduce((a, v) => a + v.total, 0);
+          const totalAdmin = ventasFiltradas.filter(v => (v.usuario_rol || 'admin').toLowerCase() === 'admin').reduce((a, v) => a + v.total, 0);
+          const totalVendedores = ventasFiltradas.filter(v => (v.usuario_rol || '').toLowerCase() === 'vendedor').reduce((a, v) => a + v.total, 0);
+
+          const ventasHoyCount = ventas.filter(v => getFechaLocalStr(v.creado_en) === hoyStr).length;
+          const ventasAdminCount = ventas.filter(v => (v.usuario_rol || 'admin').toLowerCase() === 'admin').length;
+          const ventasVendedorCount = ventas.filter(v => (v.usuario_rol || '').toLowerCase() === 'vendedor').length;
+
           const fechaLabel = fechaFiltroVentas === 'hoy' 
-            ? 'Ventas de Hoy' 
+            ? `Ventas de Hoy (${hoyStr})` 
             : fechaFiltroVentas 
               ? `Ventas del ${fechaFiltroVentas}` 
               : 'Historial Completo';
 
+          const vendedorLabel = vendedorFiltroVentas === 'admin'
+            ? 'Solo Administrador'
+            : vendedorFiltroVentas === 'vendedor'
+              ? 'Solo Vendedores'
+              : 'Todos los Vendedores';
+
           return (
             <div className="space-y-4">
-              {/* Barra superior con Filtros y Botón de Imprimir Reporte en PDF */}
-              <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              {/* Barra superior con Título, Botones de Impresión y Acciones */}
+              <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-800">Historial y Reporte de Ventas</h2>
-                  <p className="text-xs text-slate-500">Registro detallado de transacciones, reimpresión y balance diario</p>
+                  <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <History className="text-rose-700" size={22} />
+                    Historial y Reporte de Ventas
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Auditoría de compras por vendedor, balance diario e impresión formal
+                  </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-                  {/* Selector rápido: Todos / Hoy */}
-                  <div className="inline-flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
-                    <button
-                      onClick={() => setFechaFiltroVentas('')}
-                      className={`px-3 py-1.5 rounded-lg font-semibold transition ${
-                        fechaFiltroVentas === '' ? 'bg-white text-indigo-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      Todas ({ventas.length})
-                    </button>
+                <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                  {/* Botón Principal: Imprimir Reporte Formal a Color (Idéntico a la Factura) */}
+                  <button
+                    onClick={() => imprimirReporteVentasFormal(ventasFiltradas, fechaLabel, vendedorLabel)}
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-red-700 via-rose-700 to-rose-800 hover:from-red-800 hover:to-rose-900 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-200 transition"
+                    title="Imprimir reporte formal a color (Hoja Carta)"
+                  >
+                    <Printer size={15} /> Imprimir Reporte Formal
+                  </button>
+
+                  {/* Botón Secundario: Descargar PDF */}
+                  <button
+                    onClick={() => exportarReporteVentasPDF(ventasFiltradas, fechaLabel, vendedorLabel)}
+                    className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold shadow-sm transition"
+                    title="Descargar archivo PDF digital"
+                  >
+                    <FileDown size={14} /> PDF
+                  </button>
+
+                  <button 
+                    onClick={loadVentas} 
+                    className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition"
+                    title="Refrescar lista"
+                  >
+                    <RefreshCw size={15} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Barra de Filtros Dual: Por Fecha (Hoy por defecto) y Por Vendedor (Admin vs Vendedor) */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                {/* 1. Filtro por Fecha */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    <Calendar size={13} className="text-rose-600" /> Fecha:
+                  </span>
+                  
+                  <div className="inline-flex bg-white p-1 rounded-xl border border-slate-200 text-xs shadow-sm">
                     <button
                       onClick={() => setFechaFiltroVentas('hoy')}
-                      className={`px-3 py-1.5 rounded-lg font-semibold transition ${
-                        fechaFiltroVentas === 'hoy' ? 'bg-white text-indigo-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
+                      className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                        fechaFiltroVentas === 'hoy'
+                          ? 'bg-gradient-to-r from-red-700 to-rose-700 text-white shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      Hoy ({ventas.filter(v => v.creado_en.slice(0, 10) === hoyStr).length})
+                      <span>Hoy</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${fechaFiltroVentas === 'hoy' ? 'bg-white/25 text-white' : 'bg-rose-100 text-rose-700'}`}>
+                        {ventasHoyCount}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => setFechaFiltroVentas('')}
+                      className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                        fechaFiltroVentas === ''
+                          ? 'bg-gradient-to-r from-red-700 to-rose-700 text-white shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>Todas</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${fechaFiltroVentas === '' ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                        {ventas.length}
+                      </span>
                     </button>
                   </div>
 
                   {/* Selector de fecha personalizada */}
                   <input
                     type="date"
-                    value={fechaFiltroVentas === 'hoy' ? '' : fechaFiltroVentas}
+                    value={fechaFiltroVentas === 'hoy' ? hoyStr : fechaFiltroVentas}
                     onChange={(e) => setFechaFiltroVentas(e.target.value)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                    title="Filtrar por fecha específica"
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium shadow-sm"
+                    title="Escoger una fecha específica"
                   />
+                </div>
 
-                  {/* Botón Imprimir Reporte en PDF del día o fecha */}
-                  <button
-                    onClick={() => exportarReporteVentasPDF(ventasFiltradas, fechaLabel)}
-                    className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-200 transition"
-                    title="Descargar reporte digital en PDF"
-                  >
-                    <FileDown size={14} /> Imprimir Reporte PDF
-                  </button>
+                {/* 2. Filtro por Vendedor (Admin vs Vendedor) */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    <Users size={13} className="text-indigo-600" /> Vendedor:
+                  </span>
 
-                  <button 
-                    onClick={loadVentas} 
-                    className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition"
-                    title="Refrescar lista"
-                  >
-                    <RefreshCw size={14} />
-                  </button>
+                  <div className="inline-flex bg-white p-1 rounded-xl border border-slate-200 text-xs shadow-sm">
+                    <button
+                      onClick={() => setVendedorFiltroVentas('todos')}
+                      className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                        vendedorFiltroVentas === 'todos'
+                          ? 'bg-indigo-600 text-white font-bold shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Todos ({ventas.length})
+                    </button>
+
+                    <button
+                      onClick={() => setVendedorFiltroVentas('admin')}
+                      className={`px-3 py-1.5 rounded-lg font-semibold transition flex items-center gap-1 ${
+                        vendedorFiltroVentas === 'admin'
+                          ? 'bg-purple-700 text-white font-bold shadow-sm'
+                          : 'text-slate-600 hover:text-purple-700'
+                      }`}
+                    >
+                      <span>👑 Admin</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${vendedorFiltroVentas === 'admin' ? 'bg-white/25 text-white' : 'bg-purple-100 text-purple-700'}`}>
+                        {ventasAdminCount}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => setVendedorFiltroVentas('vendedor')}
+                      className={`px-3 py-1.5 rounded-lg font-semibold transition flex items-center gap-1 ${
+                        vendedorFiltroVentas === 'vendedor'
+                          ? 'bg-emerald-700 text-white font-bold shadow-sm'
+                          : 'text-slate-600 hover:text-emerald-700'
+                      }`}
+                    >
+                      <span>🧑 Vendedor</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${vendedorFiltroVentas === 'vendedor' ? 'bg-white/25 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
+                        {ventasVendedorCount}
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Tabla de Ventas */}
+              {/* Tabla de Ventas con Columna de Vendedor */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 {loadingVentas ? (
-                  <div className="p-12 text-center text-slate-400">Cargando historial...</div>
+                  <div className="p-12 text-center text-slate-400">Cargando historial de ventas...</div>
                 ) : ventasFiltradas.length === 0 ? (
                   <div className="p-12 flex flex-col items-center text-slate-400">
                     <History size={48} className="text-slate-200 mb-3" />
-                    <p className="font-semibold text-slate-700">No se encontraron ventas para esta fecha</p>
-                    <p className="text-xs text-slate-400 mt-1">Prueba seleccionando "Todas" o cambiando la fecha</p>
+                    <p className="font-semibold text-slate-700">No se encontraron ventas para los filtros seleccionados</p>
+                    <p className="text-xs text-slate-400 mt-1">Prueba cambiando la fecha o seleccionando "Todos los Vendedores"</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -1983,100 +2353,119 @@ export default function App() {
                         <tr>
                           <th className="px-5 py-3">Venta #</th>
                           <th className="px-5 py-3">Fecha y Hora</th>
+                          <th className="px-5 py-3">Vendido por</th>
                           <th className="px-5 py-3">Productos Adquiridos (Carrito)</th>
                           <th className="px-5 py-3 text-right">Total Cobrado</th>
                           <th className="px-5 py-3 text-center">Acciones</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {ventasFiltradas.map(v => (
-                          <tr key={v.id} className="hover:bg-slate-50 transition">
-                            <td className="px-5 py-3 font-mono font-bold text-slate-600">
-                              <span className="bg-slate-100 px-2 py-0.5 rounded-md">#{v.id}</span>
-                            </td>
-                            <td className="px-5 py-3 text-slate-700">
-                              <span className="font-medium">{new Date(v.creado_en).toLocaleDateString('es-ES')}</span>
-                              <span className="text-slate-400 ml-2 text-xs">{new Date(v.creado_en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
-                            </td>
+                        {ventasFiltradas.map(v => {
+                          const esAdmin = (v.usuario_rol || 'admin').toLowerCase() === 'admin';
+                          const nombreVendedor = v.usuario_nombre || (esAdmin ? 'Administrador' : 'Vendedor');
 
-                            {/* Mostrar productos reales por su nombre adquiridos en el mismo carrito */}
-                            <td className="px-5 py-3">
-                              <div className="flex flex-wrap gap-1.5 max-w-md">
-                                {(v.detalles && v.detalles.length > 0) ? (
-                                  v.detalles.map(d => {
-                                    const prod = products.find(p => p.id === d.producto_id);
-                                    const nombreProd = d.producto?.nombre || prod?.nombre || `Item #${d.producto_id}`;
-                                    return (
-                                      <span 
-                                        key={d.id}
-                                        className="inline-flex items-center gap-1 bg-indigo-50 border border-indigo-100 text-indigo-900 text-xs px-2.5 py-1 rounded-lg font-medium"
-                                      >
-                                        <strong className="text-indigo-600">{d.cantidad}x</strong> {nombreProd}
-                                      </span>
-                                    );
-                                  })
-                                ) : (
-                                  <span className="text-xs text-slate-400 italic">Venta rápida</span>
-                                )}
-                              </div>
-                            </td>
+                          return (
+                            <tr key={v.id} className="hover:bg-slate-50 transition">
+                              <td className="px-5 py-3 font-mono font-bold text-slate-600">
+                                <span className="bg-slate-100 px-2 py-0.5 rounded-md">#{v.id}</span>
+                              </td>
+                              <td className="px-5 py-3 text-slate-700">
+                                <span className="font-medium">{new Date(v.creado_en).toLocaleDateString('es-ES')}</span>
+                                <span className="text-slate-400 ml-2 text-xs">{new Date(v.creado_en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
+                              </td>
 
-                            <td className="px-5 py-3 text-right font-black text-emerald-600 text-base font-mono">
-                              {currencySymbol}{v.total.toFixed(2)}
-                            </td>
+                              {/* Columna: Quién vendió */}
+                              <td className="px-5 py-3">
+                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                                  esAdmin 
+                                    ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                }`}>
+                                  <span>{esAdmin ? '👑' : '🧑'}</span>
+                                  <span>{nombreVendedor}</span>
+                                  <span className="text-[10px] opacity-75 font-normal">({esAdmin ? 'Admin' : 'Vendedor'})</span>
+                                </span>
+                              </td>
 
-                            <td className="px-5 py-3 text-center">
-                              <div className="flex items-center justify-center gap-1.5">
-                                <button 
-                                  onClick={() => setVentaDetalle(ventaDetalle?.id === v.id ? null : v)}
-                                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition"
-                                >
-                                  {ventaDetalle?.id === v.id ? 'Cerrar' : 'Ver'}
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    // Reconstruir factura completa con nombres reales del carrito
-                                    const reconstructedItems = (v.detalles || []).map(d => {
-                                      const p = products.find(prod => prod.id === d.producto_id);
-                                      return {
-                                        product_id: d.producto_id,
-                                        nombre: d.producto?.nombre || p?.nombre || `Producto #${d.producto_id}`,
-                                        price: d.precio_unit,
-                                        quantity: d.cantidad
-                                      };
-                                    });
-                                    setTicketData({
-                                      nroFactura: `FAC-${String(v.id).padStart(5, '0')}`,
-                                      items: reconstructedItems.length > 0 ? reconstructedItems : [{ product_id: 1, nombre: 'Venta Registrada', price: v.total, quantity: 1 }],
-                                      total: v.total,
-                                      metodoPago: 'efectivo',
-                                      montoRecibido: v.total,
-                                      vuelto: 0,
-                                      cliente: 'Consumidor Final',
-                                      nit: 'S/N',
-                                      hora: new Date(v.creado_en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-                                      fecha: new Date(v.creado_en).toLocaleDateString('es-ES'),
-                                      cajero: user?.nombre || user?.email || 'Administrador',
-                                    });
-                                  }}
-                                  className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition flex items-center gap-1"
-                                  title="Reimprimir Factura a Color o Ticket"
-                                >
-                                  <Receipt size={13} /> Factura
-                                </button>
-                                {isAdmin && (
-                                  <button
-                                    onClick={() => setVentaEliminarConfirm(v)}
-                                    className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition"
-                                    title="Anular venta y reponer stock"
+                              {/* Mostrar productos reales por su nombre adquiridos en el mismo carrito */}
+                              <td className="px-5 py-3">
+                                <div className="flex flex-wrap gap-1.5 max-w-md">
+                                  {(v.detalles && v.detalles.length > 0) ? (
+                                    v.detalles.map(d => {
+                                      const prod = products.find(p => p.id === d.producto_id);
+                                      const nombreProd = d.producto?.nombre || prod?.nombre || `Item #${d.producto_id}`;
+                                      return (
+                                        <span 
+                                          key={d.id}
+                                          className="inline-flex items-center gap-1 bg-indigo-50 border border-indigo-100 text-indigo-900 text-xs px-2.5 py-1 rounded-lg font-medium"
+                                        >
+                                          <strong className="text-indigo-600">{d.cantidad}x</strong> {nombreProd}
+                                        </span>
+                                      );
+                                    })
+                                  ) : (
+                                    <span className="text-xs text-slate-400 italic">Venta rápida</span>
+                                  )}
+                                </div>
+                              </td>
+
+                              <td className="px-5 py-3 text-right font-black text-emerald-600 text-base font-mono">
+                                {currencySymbol}{v.total.toFixed(2)}
+                              </td>
+
+                              <td className="px-5 py-3 text-center">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button 
+                                    onClick={() => setVentaDetalle(ventaDetalle?.id === v.id ? null : v)}
+                                    className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition"
                                   >
-                                    <Trash2 size={13} />
+                                    {ventaDetalle?.id === v.id ? 'Cerrar' : 'Ver'}
                                   </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                                  <button
+                                    onClick={() => {
+                                      // Reconstruir factura completa con nombres reales del carrito
+                                      const reconstructedItems = (v.detalles || []).map(d => {
+                                        const p = products.find(prod => prod.id === d.producto_id);
+                                        return {
+                                          product_id: d.producto_id,
+                                          nombre: d.producto?.nombre || p?.nombre || `Producto #${d.producto_id}`,
+                                          price: d.precio_unit,
+                                          quantity: d.cantidad
+                                        };
+                                      });
+                                      setTicketData({
+                                        nroFactura: `FAC-${String(v.id).padStart(5, '0')}`,
+                                        items: reconstructedItems.length > 0 ? reconstructedItems : [{ product_id: 1, nombre: 'Venta Registrada', price: v.total, quantity: 1 }],
+                                        total: v.total,
+                                        metodoPago: 'efectivo',
+                                        montoRecibido: v.total,
+                                        vuelto: 0,
+                                        cliente: 'Consumidor Final',
+                                        nit: 'S/N',
+                                        hora: new Date(v.creado_en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+                                        fecha: new Date(v.creado_en).toLocaleDateString('es-ES'),
+                                        cajero: v.usuario_nombre || user?.nombre || user?.email || 'Administrador',
+                                      });
+                                    }}
+                                    className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition flex items-center gap-1"
+                                    title="Reimprimir Factura a Color o Ticket"
+                                  >
+                                    <Receipt size={13} /> Factura
+                                  </button>
+                                  {isAdmin && (
+                                    <button
+                                      onClick={() => setVentaEliminarConfirm(v)}
+                                      className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition"
+                                      title="Anular venta y reponer stock"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -2089,7 +2478,7 @@ export default function App() {
                   <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
                     <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
                       <Receipt size={16} className="text-indigo-600" />
-                      Detalle de Productos en la Venta #{ventaDetalle.id}
+                      Detalle de Productos en la Venta #{ventaDetalle.id} — Vendido por: {ventaDetalle.usuario_nombre || 'Administrador'}
                     </h3>
                     <button onClick={() => setVentaDetalle(null)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
                   </div>
@@ -2118,19 +2507,30 @@ export default function App() {
                 </div>
               )}
 
-              {/* Resumen total con filtro */}
+              {/* Resumen Total con Desglose por Vendedor (Admin vs Vendedor) */}
               {ventasFiltradas.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {[
-                    { label: `Ventas (${fechaLabel})`, value: ventasFiltradas.length, color: 'indigo' },
-                    { label: `Total Recaudado (${currencySymbol.trim()})`, value: `${currencySymbol}${totalRecaudadoFiltrado.toFixed(2)}`, color: 'emerald' },
-                    { label: 'Ticket Promedio', value: `${currencySymbol}${(totalRecaudadoFiltrado / ventasFiltradas.length).toFixed(2)}`, color: 'amber' },
-                  ].map(({ label, value, color }) => (
-                    <div key={label} className={`p-4 bg-${color}-50 border border-${color}-100 rounded-2xl text-center shadow-sm`}>
-                      <p className={`text-xs font-semibold text-${color}-600 uppercase`}>{label}</p>
-                      <p className={`text-xl font-black text-${color}-700 mt-1 font-mono`}>{value}</p>
-                    </div>
-                  ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl text-center shadow-sm">
+                    <p className="text-xs font-semibold text-indigo-600 uppercase">Transacciones ({fechaLabel})</p>
+                    <p className="text-2xl font-black text-indigo-700 mt-1 font-mono">{ventasFiltradas.length}</p>
+                  </div>
+
+                  <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-center shadow-sm">
+                    <p className="text-xs font-semibold text-emerald-600 uppercase">Total Recaudado</p>
+                    <p className="text-2xl font-black text-emerald-700 mt-1 font-mono">{currencySymbol}{totalRecaudadoFiltrado.toFixed(2)}</p>
+                  </div>
+
+                  <div className="p-4 bg-purple-50 border border-purple-100 rounded-2xl text-center shadow-sm">
+                    <p className="text-xs font-semibold text-purple-600 uppercase">👑 Vendido por Admin</p>
+                    <p className="text-xl font-black text-purple-700 mt-1 font-mono">{currencySymbol}{totalAdmin.toFixed(2)}</p>
+                    <p className="text-[10px] text-purple-500 mt-0.5">{ventasFiltradas.filter(v => (v.usuario_rol || 'admin').toLowerCase() === 'admin').length} ventas</p>
+                  </div>
+
+                  <div className="p-4 bg-teal-50 border border-teal-100 rounded-2xl text-center shadow-sm">
+                    <p className="text-xs font-semibold text-teal-600 uppercase">🧑 Vendido por Vendedores</p>
+                    <p className="text-xl font-black text-teal-700 mt-1 font-mono">{currencySymbol}{totalVendedores.toFixed(2)}</p>
+                    <p className="text-[10px] text-teal-500 mt-0.5">{ventasFiltradas.filter(v => (v.usuario_rol || '').toLowerCase() === 'vendedor').length} ventas</p>
+                  </div>
                 </div>
               )}
             </div>

@@ -118,14 +118,18 @@ class DetalleCompra(Base):
 class Venta(Base):
     __tablename__ = "ventas"
 
-    id           = Column(Integer, primary_key=True, index=True)
-    cliente_id   = Column(Integer, ForeignKey("clientes.id"), nullable=True)
-    total        = Column(Float, nullable=False)
-    observacion  = Column(Text)
-    creado_en    = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    id             = Column(Integer, primary_key=True, index=True)
+    cliente_id     = Column(Integer, ForeignKey("clientes.id"), nullable=True)
+    usuario_id     = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    usuario_nombre = Column(String(100), nullable=True)
+    usuario_rol    = Column(String(20), nullable=True)
+    total          = Column(Float, nullable=False)
+    observacion    = Column(Text)
+    creado_en      = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    cliente      = relationship("Cliente", back_populates="ventas")
-    detalles     = relationship("DetalleVenta", back_populates="venta")
+    cliente        = relationship("Cliente", back_populates="ventas")
+    usuario        = relationship("Usuario")
+    detalles       = relationship("DetalleVenta", back_populates="venta")
 
 
 # ─── Detalle de Ventas ───────────────────────────────────────

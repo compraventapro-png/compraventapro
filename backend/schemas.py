@@ -209,12 +209,15 @@ class DetalleVentaOut(BaseModel):
 
 
 class VentaOut(BaseModel):
-    id:          int
-    cliente_id:  Optional[int]
-    total:       float
-    observacion: Optional[str]
-    creado_en:   datetime
-    detalles:    List[DetalleVentaOut] = []
+    id:             int
+    cliente_id:     Optional[int]
+    usuario_id:     Optional[int] = None
+    usuario_nombre: Optional[str] = None
+    usuario_rol:    Optional[str] = None
+    total:          float
+    observacion:    Optional[str]
+    creado_en:      datetime
+    detalles:       List[DetalleVentaOut] = []
 
     model_config = {"from_attributes": True}
 

@@ -56,7 +56,11 @@ def obtener_venta(venta_id: int, db: Session = Depends(get_db), _=Depends(get_cu
 
 
 @router.post("/checkout", response_model=schemas.VentaOut, status_code=status.HTTP_201_CREATED)
-def checkout_venta(data: schemas.VentaCreate, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def checkout_venta(
+    data: schemas.VentaCreate, 
+    db: Session = Depends(get_db), 
+    current_user: models.Usuario = Depends(get_current_user)
+):
     """
     Registra una venta de forma ATÓMICA:
     1. Valida stock de cada producto.
@@ -101,11 +105,17 @@ def checkout_venta(data: schemas.VentaCreate, db: Session = Depends(get_db), _=D
                 "subtotal":    subtotal,
             })
 
+        # Obtener rol como string limpio
+        rol_str = current_user.rol.value if hasattr(current_user.rol, 'value') else str(current_user.rol)
+
         # Cabecera de venta
         venta = models.Venta(
-            cliente_id  = data.cliente_id,
-            total       = total,
-            observacion = data.observacion,
+            cliente_id     = data.cliente_id,
+            usuario_id     = current_user.id,
+            usuario_nombre = current_user.nombre or current_user.email,
+            usuario_rol    = rol_str,
+            total          = total,
+            observacion    = data.observacion,
         )
         db.add(venta)
         db.flush()  # obtiene venta.id
