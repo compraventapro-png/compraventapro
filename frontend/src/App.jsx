@@ -1586,7 +1586,7 @@ export default function App() {
               }`}
             >
               <LayoutDashboard size={18} className={activeTab === 'dashboard' ? 'text-amber-300' : 'text-slate-400 group-hover:text-amber-300 transition-colors'} />
-              <span>Dashboard & KPIs</span>
+              <span>Panel de Control (KPI)</span>
             </button>
           )}
 
@@ -1675,7 +1675,7 @@ export default function App() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 mb-5 border-b border-slate-200/80 gap-3">
           <div>
             <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              {activeTab === 'dashboard' && <><LayoutDashboard className="text-rose-700" size={22} /> Dashboard de Métricas & KPIs</>}
+              {activeTab === 'dashboard' && <><LayoutDashboard className="text-rose-700" size={22} /> Panel de Control & Métricas</>}
               {activeTab === 'inventory' && <><Package className="text-rose-700" size={22} /> Catálogo de Inventario</>}
               {activeTab === 'pos' && <><ShoppingCart className="text-rose-700" size={22} /> Punto de Venta (POS)</>}
               {activeTab === 'ventas' && <><History className="text-rose-700" size={22} /> Historial y Reporte de Ventas</>}
@@ -1784,7 +1784,7 @@ export default function App() {
                       </div>
 
                       <div className="mt-4 pt-3 border-t border-slate-100">
-                        <span className="text-lg font-extrabold text-slate-900 block mb-2">{currencySymbol}{p.precio_venta.toFixed(2)}</span>
+                        <span className="text-lg font-extrabold text-slate-900 block mb-2">{currencySymbol}{Number(p.precio_venta || 0).toFixed(2)}</span>
                         <div className="flex gap-2 w-full">
                           {isAdmin && (
                             <button 
@@ -2172,11 +2172,11 @@ export default function App() {
                           <p className="font-bold text-slate-800">{p.nombre}</p>
                           {p.descripcion && <p className="text-xs text-slate-400">{p.descripcion}</p>}
                         </td>
-                        {isAdmin && <td className="px-6 py-4 text-slate-600">{currencySymbol}{p.precio_compra.toFixed(2)}</td>}
-                        <td className="px-6 py-4 font-bold text-slate-900">{currencySymbol}{p.precio_venta.toFixed(2)}</td>
+                        {isAdmin && <td className="px-6 py-4 text-slate-600">{currencySymbol}{Number(p.precio_compra || 0).toFixed(2)}</td>}
+                        <td className="px-6 py-4 font-bold text-slate-900">{currencySymbol}{Number(p.precio_venta || 0).toFixed(2)}</td>
                         {isAdmin && (
                           <td className="px-6 py-4 text-emerald-600 font-semibold">
-                            +{currencySymbol}{(p.precio_venta - p.precio_compra).toFixed(2)}
+                            +{currencySymbol}{(Number(p.precio_venta || 0) - Number(p.precio_compra || 0)).toFixed(2)}
                           </td>
                         )}
                         <td className="px-6 py-4">
@@ -2496,7 +2496,7 @@ export default function App() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm">
                 <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Compras Hoy</p>
-                <p className="text-2xl font-black text-rose-500">{currencySymbol}${(dashboardData?.total_compras_hoy ?? 0).toFixed(2)}</p>
+                <p className="text-2xl font-black text-rose-500">{currencySymbol}{Number(dashboardData?.total_compras_hoy || 0).toFixed(2)}</p>
                 <p className="text-xs text-slate-400 mt-1">{dashboardData?.num_compras_hoy ?? 0} entradas de mercadería</p>
               </div>
               <div className="p-5 bg-indigo-900 text-white rounded-2xl shadow-sm flex flex-col justify-between">
@@ -2816,7 +2816,7 @@ export default function App() {
                               </td>
 
                               <td className="px-5 py-3 text-right font-black text-emerald-600 text-base font-mono">
-                                {currencySymbol}{v.total.toFixed(2)}
+                                {currencySymbol}{Number(v.total || 0).toFixed(2)}
                               </td>
 
                               <td className="px-5 py-3 text-center">
@@ -2898,16 +2898,16 @@ export default function App() {
                             <span className="w-7 h-7 bg-indigo-50 text-indigo-700 rounded-lg flex items-center justify-center text-xs font-bold">{d.cantidad}</span>
                             <div>
                               <p className="font-semibold text-slate-800">{nombre}</p>
-                              <p className="text-xs text-slate-400">{currencySymbol}{d.precio_unit.toFixed(2)} c/u</p>
+                              <p className="text-xs text-slate-400">{currencySymbol}{Number(d.precio_unit || 0).toFixed(2)} c/u</p>
                             </div>
                           </div>
-                          <span className="font-bold text-slate-900 font-mono">{currencySymbol}{d.subtotal.toFixed(2)}</span>
+                          <span className="font-bold text-slate-900 font-mono">{currencySymbol}{Number(d.subtotal || 0).toFixed(2)}</span>
                         </div>
                       );
                     })}
                     <div className="flex justify-between pt-2 font-black text-emerald-700 text-base">
                       <span>TOTAL COBRADO</span>
-                      <span className="font-mono">{currencySymbol}{ventaDetalle.total.toFixed(2)}</span>
+                      <span className="font-mono">{currencySymbol}{Number(ventaDetalle.total || 0).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -2923,26 +2923,26 @@ export default function App() {
 
                   <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-center shadow-sm">
                     <p className="text-xs font-semibold text-emerald-600 uppercase">Total Recaudado (Filtro)</p>
-                    <p className="text-2xl font-black text-emerald-700 mt-1 font-mono">{currencySymbol}{totalRecaudadoFiltrado.toFixed(2)}</p>
+                    <p className="text-2xl font-black text-emerald-700 mt-1 font-mono">{currencySymbol}{Number(totalRecaudadoFiltrado || 0).toFixed(2)}</p>
                   </div>
 
                   {!isAdmin ? (
                     <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-center shadow-sm">
                       <p className="text-xs font-semibold text-emerald-700 uppercase">🧑 Mis Ventas Realizadas</p>
-                      <p className="text-xl font-black text-emerald-800 mt-1 font-mono">{currencySymbol}{misVentasTotal.toFixed(2)}</p>
+                      <p className="text-xl font-black text-emerald-800 mt-1 font-mono">{currencySymbol}{Number(misVentasTotal || 0).toFixed(2)}</p>
                       <p className="text-[10px] text-emerald-600 mt-0.5">{misVentasCount} ventas registradas por ti</p>
                     </div>
                   ) : (
                     <div className="p-4 bg-purple-50 border border-purple-100 rounded-2xl text-center shadow-sm">
                       <p className="text-xs font-semibold text-purple-600 uppercase">👑 Vendido por Admin</p>
-                      <p className="text-xl font-black text-purple-700 mt-1 font-mono">{currencySymbol}{totalAdmin.toFixed(2)}</p>
+                      <p className="text-xl font-black text-purple-700 mt-1 font-mono">{currencySymbol}{Number(totalAdmin || 0).toFixed(2)}</p>
                       <p className="text-[10px] text-purple-500 mt-0.5">{ventasFiltradas.filter(v => (v.usuario_rol || 'admin').toLowerCase() === 'admin').length} ventas</p>
                     </div>
                   )}
 
                   <div className="p-4 bg-teal-50 border border-teal-100 rounded-2xl text-center shadow-sm">
                     <p className="text-xs font-semibold text-teal-600 uppercase">🧑 Total Vendedores</p>
-                    <p className="text-xl font-black text-teal-700 mt-1 font-mono">{currencySymbol}{totalVendedores.toFixed(2)}</p>
+                    <p className="text-xl font-black text-teal-700 mt-1 font-mono">{currencySymbol}{Number(totalVendedores || 0).toFixed(2)}</p>
                     <p className="text-[10px] text-teal-500 mt-0.5">{ventasFiltradas.filter(v => (v.usuario_rol || '').toLowerCase() === 'vendedor').length} ventas</p>
                   </div>
                 </div>
@@ -2994,12 +2994,12 @@ export default function App() {
                         </td>
                         <td className="px-5 py-3 text-slate-500">{u.email}</td>
                         <td className="px-5 py-3">
-                          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${u.rol === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                            {u.rol.toUpperCase()}
+                          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${(u.rol || '').toLowerCase() === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                            {(u.rol || 'vendedor').toUpperCase()}
                           </span>
                         </td>
                         <td className="px-5 py-3 text-slate-500 text-xs">
-                          {new Date(u.creado_en).toLocaleDateString('es-ES')}
+                          {u.creado_en ? new Date(u.creado_en).toLocaleDateString('es-ES') : '-'}
                         </td>
                         <td className="px-5 py-3 text-center">
                           <button
